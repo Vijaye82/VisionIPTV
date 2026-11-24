@@ -2,15 +2,8 @@ name: Build and Publish Vision IPTV APK
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Release version tag, e.g. v2.1.1 (leave blank for build only)"
-        required: false
-        type: string
   push:
     branches: [main]
-    tags:
-      - "v*"
 
 permissions:
   contents: write
@@ -45,6 +38,17 @@ jobs:
           yes | "$SDKMANAGER" --licenses || true
           "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
+      - name: Read app version
+        id: version
+        run: |
+          VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+          if [ -z "$VERSION_NAME" ]; then
+            echo "Could not read versionName from app/build.gradle.kts"
+            exit 1
+          fi
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Release version: v$VERSION_NAME"
+
       - name: Build APK
         run: gradle --no-daemon assembleDebug
 
@@ -57,11 +61,10 @@ jobs:
           retention-days: 14
 
       - name: Publish APK to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          name: Vision IPTV ${{ inputs.release_tag || github.ref_name }}
+          tag_name: v${{ steps.version.outputs.name }}
+          name: Vision IPTV v${{ steps.version.outputs.name }}
           target_commitish: main
           generate_release_notes: true
           files: app/build/outputs/apk/debug/app-debug.apk
