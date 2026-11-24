@@ -41,3 +41,18 @@ This prototype currently sends credentials as URL query/path values and enables 
 7. Under **Artifacts**, download `Vision-IPTV-debug-APK`. Extract it to get `app-debug.apk`.
 
 The workflow creates a **debug APK** for installation/testing. It is not a signed release build for public distribution. GitHub's hosted runner performs the compilation; no IPTV login details are needed for the build. Do not commit real playlist URLs, usernames or passwords to the repository.
+
+
+## Fire TV remote navigation update
+The sidebar now uses Material buttons with visible focus feedback and requests initial focus when the app opens. Channel rows are also buttons with focus feedback. Rebuild using GitHub Actions and test with the Fire TV remote. Physical device testing is still required.
+
+
+## Visual and category-settings update
+- Movies and Series now have a cinematic streaming-home layout inspired by the user's reference: large featured hero, horizontal discovery rows, and focus-highlighted cards.
+- Settings now includes persistent switches to show/hide categories independently for Live TV, Movies, and Series.
+- Live TV category chips filter channel groups when enabled; disabling the option shows the full channel list.
+- Movies/Series currently show presentation scaffolding; real provider catalogue, artwork, categories, details and episodes still need to be connected. Hero and poster artwork in this iteration are visual placeholders, not provider artwork.
+
+
+## Country subcategory visibility controls
+The three independent Settings switches are specifically labelled for country subcategories in Live TV, Movies and Series. They are persisted locally. The current prototype's M3U Live TV list uses provider group names as its available grouping data; country detection/mapping and real VOD/series category integration remain provider-dependent and need to be connected when the catalogue screens are implemented.
