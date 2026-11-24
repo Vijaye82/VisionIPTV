@@ -58,19 +58,29 @@ private fun VisionHome(
     loadPlaylist: suspend (PlaylistAccount) -> Pair<List<TvChannel>, String>
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember { context.getSharedPreferences("vision_preferences", android.content.Context.MODE_PRIVATE) }
-    var selected by remember { mutableStateOf("Home") }
-    var connectionType by remember { mutableStateOf("M3U") }
-    var playlistUrl by remember { mutableStateOf("") }
-    var backupM3u1 by remember { mutableStateOf("") }
-    var backupM3u2 by remember { mutableStateOf("") }
-    var primaryServer by remember { mutableStateOf("") }
-    var backupServer1 by remember { mutableStateOf("") }
-    var backupServer2 by remember { mutableStateOf("") }
-    var backupServer3 by remember { mutableStateOf("") }
-    var backupServer4 by remember { mutableStateOf("") }
-    var accountUsername by remember { mutableStateOf("") }
-    var accountPassword by remember { mutableStateOf("") }
+    val prefs = remember {
+        val masterKey = androidx.security.crypto.MasterKey.Builder(context)
+            .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
+        androidx.security.crypto.EncryptedSharedPreferences.create(
+            context, "vision_preferences", masterKey,
+            androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+    val hasSavedConnection = remember { prefs.getBoolean("connection_configured", false) }
+    var showSplash by remember { mutableStateOf(true) }
+    var selected by remember { mutableStateOf(if (hasSavedConnection) "Home" else "Settings") }
+    var connectionType by remember { mutableStateOf(prefs.getString("connection_type", "M3U") ?: "M3U") }
+    var playlistUrl by remember { mutableStateOf(prefs.getString("playlist_url", "") ?: "") }
+    var backupM3u1 by remember { mutableStateOf(prefs.getString("backup_m3u1", "") ?: "") }
+    var backupM3u2 by remember { mutableStateOf(prefs.getString("backup_m3u2", "") ?: "") }
+    var primaryServer by remember { mutableStateOf(prefs.getString("primary_server", "") ?: "") }
+    var backupServer1 by remember { mutableStateOf(prefs.getString("backup_server1", "") ?: "") }
+    var backupServer2 by remember { mutableStateOf(prefs.getString("backup_server2", "") ?: "") }
+    var backupServer3 by remember { mutableStateOf(prefs.getString("backup_server3", "") ?: "") }
+    var backupServer4 by remember { mutableStateOf(prefs.getString("backup_server4", "") ?: "") }
+    var accountUsername by remember { mutableStateOf(prefs.getString("account_username", "") ?: "") }
+    var accountPassword by remember { mutableStateOf(prefs.getString("account_password", "") ?: "") }
     var primaryEpgUrl by remember { mutableStateOf(prefs.getString("primary_epg_url", "") ?: "") }
     var backupEpgUrl by remember { mutableStateOf(prefs.getString("backup_epg_url", "") ?: "") }
     var epgProgrammes by remember { mutableStateOf<List<Programme>>(emptyList()) }
@@ -95,13 +105,19 @@ private fun VisionHome(
     val firstFocus = remember { FocusRequester() }
     val nav = listOf("Home", "Movies", "Series", "Live TV", "TV Guide", "Catch-up", "My List", "Settings")
 
-    LaunchedEffect(Unit) { try { firstFocus.requestFocus() } catch (_: Exception) { } }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1200)
+        showSplash = false
+        try { firstFocus.requestFocus() } catch (_: Exception) { }
+    }
 
     MaterialTheme(colorScheme = darkColorScheme(
         primary = Accent, background = Ink, surface = SurfaceDark,
         onSurface = Color.White, onPrimary = Ink
     )) {
-        Row(Modifier.fillMaxSize().background(Ink)) {
+        if (showSplash) {
+            VisionSplash()
+        } else Row(Modifier.fillMaxSize().background(Ink)) {
             Column(
                 Modifier.width(190.dp).fillMaxHeight()
                     .background(Color(0xFF0A111A)).padding(horizontal = 14.dp, vertical = 18.dp)
@@ -116,7 +132,7 @@ private fun VisionHome(
                     Row(
                         Modifier.fillMaxWidth()
                             .padding(vertical = 4.dp)
-                            .then(if (index == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                            .then(if (index == if (!hasSavedConnection) nav.lastIndex else 0) Modifier.focusRequester(firstFocus) else Modifier)
                             .onFocusChanged { focused = it.isFocused }
                             .background(
                                 color = when {
@@ -261,6 +277,21 @@ private fun VisionHome(
                                     }
                                     channels = result.first
                                     activeServerLabel = result.second
+                                    prefs.edit()
+                                        .putString("connection_type", connectionType)
+                                        .putString("playlist_url", playlistUrl)
+                                        .putString("backup_m3u1", backupM3u1)
+                                        .putString("backup_m3u2", backupM3u2)
+                                        .putString("primary_server", primaryServer)
+                                        .putString("backup_server1", backupServer1)
+                                        .putString("backup_server2", backupServer2)
+                                        .putString("backup_server3", backupServer3)
+                                        .putString("backup_server4", backupServer4)
+                                        .putString("account_username", accountUsername)
+                                        .putString("account_password", accountPassword)
+                                        .putBoolean("connection_configured", true)
+                                        .apply()
+                                    selected = "Home"
                                     status = "Connected • ${channels.size} live channels"
                                     val providerEpgUrl = if (connectionType == "Xtream" && primaryServer.isNotBlank()) {
                                         val u = java.net.URLEncoder.encode(accountUsername, "UTF-8")
@@ -290,7 +321,7 @@ private fun VisionHome(
                         Text(status, color = Color.White, fontSize = 13.sp)
                         if (activeServerLabel.isNotBlank()) Text("Active source: $activeServerLabel", color = Muted, fontSize = 11.sp)
                         Spacer(Modifier.height(10.dp))
-                        Text("Backup URLs should belong to the same compatible IPTV service and accept the same login. Login details are not saved by this prototype; they remain in memory while the app is running.", color = Muted, fontSize = 12.sp)
+                        Text("Backup URLs should belong to the same compatible IPTV service and accept the same login. Connection details are encrypted on this device.", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.height(16.dp))
                         Spacer(Modifier.height(12.dp))
                         Spacer(Modifier.height(16.dp))
@@ -370,6 +401,24 @@ private fun VisionHome(
                     else -> HomeDashboard(onNavigate = { selected = it })
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun VisionSplash() {
+    Box(
+        Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF07111D), Color(0xFF102B3A), Color(0xFF07111D)))),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("VISION", color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp)
+            Text("IPTV", color = Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = 12.sp)
+            Spacer(Modifier.height(22.dp))
+            CircularProgressIndicator(color = Accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.height(12.dp))
+            Text("YOUR ENTERTAINMENT, YOUR WAY", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
         }
     }
 }
