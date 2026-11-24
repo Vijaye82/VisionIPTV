@@ -56,3 +56,30 @@ The sidebar now uses Material buttons with visible focus feedback and requests i
 
 ## Country subcategory visibility controls
 The three independent Settings switches are specifically labelled for country subcategories in Live TV, Movies and Series. They are persisted locally. The current prototype's M3U Live TV list uses provider group names as its available grouping data; country detection/mapping and real VOD/series category integration remain provider-dependent and need to be connected when the catalogue screens are implemented.
+
+
+## M3U and Xtream account setup
+Settings includes M3U and Xtream Codes modes. M3U accepts a primary playlist URL, two backup M3U URLs and optional username/password. Xtream accepts username/password, one primary server URL and four backup server URLs. The connect action tries configured endpoints in order and reports which source returned the live channel list. This is connection/catalogue-load failover, not automatic failover during an already-playing stream. Credentials are held in app memory only and are not persisted; secure encrypted account storage remains future work. Use only backup endpoints from the same compatible provider/service.
+
+
+## Left navigation and Live TV favourites update
+- Reworked the left navigation into large rounded-rectangle focus/selection tiles. Focus uses a bright teal fill and pale outline; the selected destination remains visibly highlighted when focus moves away.
+- Added a star toggle beside every Live TV channel. The star is D-pad focusable and can add/remove a channel from favourites.
+- Added a Favourite Channels section above All Channels in Live TV.
+- Favourite channel IDs are stored in SharedPreferences and persist across app restarts on the same device. The current storage is local to this installation; it does not sync across devices or separate playlists.
+- Fire TV physical remote testing is still required.
+
+
+## Reference-screen visual implementation
+The Compose UI has been revised toward the supplied nine-panel Vision IPTV reference: persistent left rail, teal rounded selection, cinematic home/movie/series hero and horizontal shelves, Live TV favourites/all-channel split with a preview panel, EPG-style grid, catch-up shelves, My List favourites, and connection/category settings. Catalogue poster tiles and EPG programme cells are presentation placeholders until real provider VOD/series and XMLTV data are wired into these screens. Existing M3U/Xtream connection code and local channel favourites remain the data foundation. No APK was compiled or device-tested as part of this source update.
+
+
+## EPG fallback and channel-logo enrichment
+- Settings now accepts a primary alternative XMLTV/EPG URL and a backup XMLTV/EPG URL. Values are saved in app preferences.
+- On Xtream connection, the app tries the account's `xmltv.php` feed first, then the configured alternative XMLTV URL, then the backup URL.
+- Failed/unreachable XMLTV sources are skipped rather than interrupting the live playlist connection.
+- XMLTV channel IDs and display names are matched against playlist `tvg-id`/channel names. The first matching external icon URL fills a blank playlist channel logo; existing provider logos are retained.
+- Programme entries from successful feeds are merged and mapped to the app's channel IDs/names. The TV Guide displays matched Now/Next programme titles instead of fixed demo labels.
+- For M3U playlists, use the Settings alternative and backup XMLTV URLs where the playlist's `url-tvg` header is absent or unusable. Automatic extraction of an embedded M3U `url-tvg` header is not part of this update.
+- XMLTV feeds vary in channel naming, time coverage, size and access requirements. Only channels with a matching XMLTV ID or display name can be enriched; no external logo is invented. The feed must be reachable from the device and authorized for use.
+- No APK build or Fire TV device test was run for this source update.
