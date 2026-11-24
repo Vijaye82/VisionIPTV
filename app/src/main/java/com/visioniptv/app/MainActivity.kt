@@ -108,7 +108,7 @@ private fun VisionHome(
             ) {
                 Text("VISION", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 Text("IPTV", color = Accent, fontSize = 12.sp, letterSpacing = 5.sp)
-                Text("VERSION 2.1.0", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                Text("VERSION 2.1.1", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.height(22.dp))
                 nav.forEachIndexed { index, item ->
                     var focused by remember { mutableStateOf(false) }
@@ -334,7 +334,7 @@ private fun VisionHome(
                             prefs.edit().putBoolean("show_series_country_subcategories", it).apply()
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("VISION IPTV BUILD 2.1.0 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("VISION IPTV BUILD 2.1.1 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     "TV Guide" -> GuideScreen(channels, epgProgrammes)
                     "Catch-up" -> CatchupScreen()

@@ -10,8 +10,8 @@ android {
         applicationId = "com.visioniptv.app"
         minSdk = 23
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1.0"
+        versionCode = 4
+        versionName = "2.1.1"
     }
     buildFeatures { compose = true }
     compileOptions {
