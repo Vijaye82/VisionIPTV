@@ -260,21 +260,21 @@ private fun VisionHome(
                         Spacer(Modifier.height(8.dp))
                         if (connectionType == "M3U") {
                             Text("M3U PLAYLIST URLS", color = Accent, fontWeight = FontWeight.Bold)
-                            OutlinedTextField(playlistUrl, { playlistUrl = it }, label = { Text("Primary M3U URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupM3u1, { backupM3u1 = it }, label = { Text("Backup M3U URL 1 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupM3u2, { backupM3u2 = it }, label = { Text("Backup M3U URL 2 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(playlistUrl, { playlistUrl = it }, label = { Text("Primary M3U URL") }, placeholder = { Text("Paste your main playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupM3u1, { backupM3u1 = it }, label = { Text("Backup M3U URL 1 (optional)") }, placeholder = { Text("Paste first backup playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupM3u2, { backupM3u2 = it }, label = { Text("Backup M3U URL 2 (optional)") }, placeholder = { Text("Paste second backup playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                             Text("For a self-contained M3U link, username and password can be left blank.", color = Muted, fontSize = 12.sp)
                         } else {
                             Text("XTREAM SERVER URLS", color = Accent, fontWeight = FontWeight.Bold)
-                            OutlinedTextField(primaryServer, { primaryServer = it }, label = { Text("Primary server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer1, { backupServer1 = it }, label = { Text("Backup server URL 1 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer2, { backupServer2 = it }, label = { Text("Backup server URL 2 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer3, { backupServer3 = it }, label = { Text("Backup server URL 3 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer4, { backupServer4 = it }, label = { Text("Backup server URL 4 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(primaryServer, { primaryServer = it }, label = { Text("Primary server URL") }, placeholder = { Text("e.g. https://your-provider.com:port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer1, { backupServer1 = it }, label = { Text("Backup server URL 1 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer2, { backupServer2 = it }, label = { Text("Backup server URL 2 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer3, { backupServer3 = it }, label = { Text("Backup server URL 3 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer4, { backupServer4 = it }, label = { Text("Backup server URL 4 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("LOGIN DETAILS", color = Accent, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(accountUsername, { accountUsername = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                        OutlinedTextField(accountUsername, { accountUsername = it }, label = { Text("Username") }, placeholder = { Text("Enter your IPTV username") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                         OutlinedTextField(accountPassword, { accountPassword = it }, label = { Text("Password") },
                             modifier = Modifier.fillMaxWidth(),
                             visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done))
@@ -349,8 +349,8 @@ private fun VisionHome(
                         Spacer(Modifier.height(16.dp))
                         Text("EPG SOURCES & CHANNEL LOGOS", color = Accent, fontWeight = FontWeight.Bold)
                         Text("If your provider's guide is empty or incomplete, Vision IPTV can try these XMLTV sources in order and fill missing programmes and channel icons. Successful feeds are compressed and cached on this device for offline fallback.", color = Muted, fontSize = 12.sp)
-                        OutlinedTextField(primaryEpgUrl, { primaryEpgUrl = it }, label = { Text("Alternative XMLTV / EPG URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                        OutlinedTextField(backupEpgUrl, { backupEpgUrl = it }, label = { Text("Backup XMLTV / EPG URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                        OutlinedTextField(primaryEpgUrl, { primaryEpgUrl = it }, label = { Text("Alternative XMLTV / EPG URL") }, placeholder = { Text("Paste primary XMLTV guide link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                        OutlinedTextField(backupEpgUrl, { backupEpgUrl = it }, label = { Text("Backup XMLTV / EPG URL") }, placeholder = { Text("Paste backup XMLTV guide link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                         Button(onClick = {
                             prefs.edit().putString("primary_epg_url", primaryEpgUrl)
                                 .putString("backup_epg_url", backupEpgUrl).apply()
@@ -456,15 +456,33 @@ private fun PersistentSettingToggle(prefs: android.content.SharedPreferences, ke
 private fun SettingsHub(prefs: android.content.SharedPreferences) {
     val categories = listOf("General", "Appearance", "Playback", "Subtitles", "TV Guide", "TV Services", "Channels & Library", "Recordings", "Parental Controls", "Account", "Help & About")
     var selectedCategory by remember { mutableStateOf("General") }
-    Text("SETTINGS CATEGORIES", color = Accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    Text("SETTINGS CATEGORIES  •  SELECT ONE", color = Accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         items(categories) { category ->
-            FilterChip(selected = selectedCategory == category, onClick = { selectedCategory = category }, label = { Text(category) })
+            val active = selectedCategory == category
+            Surface(
+                onClick = { selectedCategory = category },
+                color = if (active) Accent else Color(0xFF142638),
+                shape = RoundedCornerShape(20.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    if (active) 2.dp else 1.dp,
+                    if (active) Color.White else Color(0xFF36516A)
+                )
+            ) {
+                Text(
+                    (if (active) "✓  " else "") + category,
+                    color = if (active) Ink else Color.White,
+                    fontWeight = if (active) FontWeight.ExtraBold else FontWeight.Medium,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp)
+                )
+            }
         }
     }
     Spacer(Modifier.height(8.dp))
-    Column(Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFF263B52), RoundedCornerShape(12.dp)).padding(14.dp)) {
-        Text(selectedCategory.uppercase(), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxWidth().background(Color(0xFF102A40), RoundedCornerShape(12.dp)).border(2.dp, Accent, RoundedCornerShape(12.dp)).padding(14.dp)) {
+        Text("CURRENT SECTION", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+        Text(selectedCategory.uppercase(), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(8.dp))
         when (selectedCategory) {
             "General" -> {
