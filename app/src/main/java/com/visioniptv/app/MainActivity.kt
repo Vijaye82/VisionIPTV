@@ -127,6 +127,7 @@ private fun VisionHome(
     var playlistUrl by remember { mutableStateOf(prefs.getString("playlist_url", "") ?: "") }
     var backupM3u1 by remember { mutableStateOf(prefs.getString("backup_m3u1", "") ?: "") }
     var backupM3u2 by remember { mutableStateOf(prefs.getString("backup_m3u2", "") ?: "") }
+    var showBackupUrls by remember { mutableStateOf(false) }
     var primaryServer by remember { mutableStateOf(prefs.getString("primary_server", "") ?: "") }
     var backupServer1 by remember { mutableStateOf(prefs.getString("backup_server1", "") ?: "") }
     var backupServer2 by remember { mutableStateOf(prefs.getString("backup_server2", "") ?: "") }
@@ -317,15 +318,15 @@ private fun VisionHome(
                             .onFocusChanged { focused = it.isFocused }
                             .background(
                                 color = when {
-                                    focused -> Color(0xFF35D5C4)
-                                    isSelected -> Color(0xFF073B68)
+                                    focused -> Color(0xFFFFD166)
+                                    isSelected -> Color(0xFF00B8D9)
                                     else -> Color.Transparent
                                 },
                                 shape = RoundedCornerShape(13.dp)
                             )
                             .then(
-                                if (focused) Modifier.border(2.dp, Color(0xFF8CF3E8), RoundedCornerShape(13.dp))
-                                else if (isSelected) Modifier.border(1.dp, Color(0xFF168FE0), RoundedCornerShape(13.dp))
+                                if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(13.dp))
+                                else if (isSelected) Modifier.border(2.dp, Color(0xFF8CF3E8), RoundedCornerShape(13.dp))
                                 else Modifier
                             )
                             .clickable { requestSection(item) }
@@ -341,8 +342,8 @@ private fun VisionHome(
                         Spacer(Modifier.width(10.dp))
                         Text(
                             item,
-                            color = if (focused) Ink else Color.White,
-                            fontWeight = if (isSelected || focused) FontWeight.Bold else FontWeight.Medium,
+                            color = if (focused || isSelected) Color(0xFF061522) else Color.White,
+                            fontWeight = if (isSelected || focused) FontWeight.ExtraBold else FontWeight.Medium,
                             fontSize = 14.sp
                         )
                     }
@@ -492,17 +493,27 @@ private fun VisionHome(
                         Spacer(Modifier.height(8.dp))
                         if (connectionType == "M3U") {
                             Text("M3U PLAYLIST URLS", color = Accent, fontWeight = FontWeight.Bold)
-                            OutlinedTextField(playlistUrl, { playlistUrl = it }, label = { Text("Primary M3U URL") }, placeholder = { Text("Paste your main playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupM3u1, { backupM3u1 = it }, label = { Text("Backup M3U URL 1 (optional)") }, placeholder = { Text("Paste first backup playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupM3u2, { backupM3u2 = it }, label = { Text("Backup M3U URL 2 (optional)") }, placeholder = { Text("Paste second backup playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            Text("For a self-contained M3U link, username and password can be left blank.", color = Muted, fontSize = 12.sp)
+                            OutlinedTextField(playlistUrl, { playlistUrl = it }, label = { Text("Primary M3U URL (required)") }, placeholder = { Text("Paste your main playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            TextButton(onClick = { showBackupUrls = !showBackupUrls }) {
+                                Text(if (showBackupUrls) "− Hide optional backup playlists" else "+ Add optional backup playlists", color = Color(0xFF64D8FF), fontWeight = FontWeight.Bold)
+                            }
+                            if (showBackupUrls) {
+                                OutlinedTextField(backupM3u1, { backupM3u1 = it }, label = { Text("Backup M3U URL 1 (optional)") }, placeholder = { Text("Paste first backup playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                                OutlinedTextField(backupM3u2, { backupM3u2 = it }, label = { Text("Backup M3U URL 2 (optional)") }, placeholder = { Text("Paste second backup playlist link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            }
+                            Text("For a self-contained M3U link, username and password can be left blank. Backups are optional.", color = Muted, fontSize = 12.sp)
                         } else {
                             Text("XTREAM SERVER URLS", color = Accent, fontWeight = FontWeight.Bold)
-                            OutlinedTextField(primaryServer, { primaryServer = it }, label = { Text("Primary server URL") }, placeholder = { Text("e.g. https://your-provider.com:port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer1, { backupServer1 = it }, label = { Text("Backup server URL 1 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer2, { backupServer2 = it }, label = { Text("Backup server URL 2 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer3, { backupServer3 = it }, label = { Text("Backup server URL 3 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                            OutlinedTextField(backupServer4, { backupServer4 = it }, label = { Text("Backup server URL 4 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(primaryServer, { primaryServer = it }, label = { Text("Primary server URL (required)") }, placeholder = { Text("e.g. https://your-provider.com:port") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            TextButton(onClick = { showBackupUrls = !showBackupUrls }) {
+                                Text(if (showBackupUrls) "− Hide optional backup servers" else "+ Add optional backup servers", color = Color(0xFF64D8FF), fontWeight = FontWeight.Bold)
+                            }
+                            if (showBackupUrls) {
+                                OutlinedTextField(backupServer1, { backupServer1 = it }, label = { Text("Backup server URL 1 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                                OutlinedTextField(backupServer2, { backupServer2 = it }, label = { Text("Backup server URL 2 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                                OutlinedTextField(backupServer3, { backupServer3 = it }, label = { Text("Backup server URL 3 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                                OutlinedTextField(backupServer4, { backupServer4 = it }, label = { Text("Backup server URL 4 (optional)") }, placeholder = { Text("Paste compatible backup server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            }
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("LOGIN DETAILS", color = Accent, fontWeight = FontWeight.Bold)
