@@ -169,6 +169,18 @@ private fun VisionHome(
     val scope = rememberCoroutineScope()
     val firstFocus = remember { FocusRequester() }
     val nav = listOf("Home", "Movies", "Series", "Live TV", "TV Guide", "Catch-up", "My List", "Settings")
+    var pendingProtectedSection by remember { mutableStateOf<String?>(null) }
+    var parentalPinInput by remember { mutableStateOf("") }
+    var parentalPinError by remember { mutableStateOf("") }
+    val parentalProtectedSections = setOf("Movies", "Series", "Catch-up")
+    fun requestSection(section: String) {
+        val configured = prefs.getString("parental_pin_hash", "").orEmpty().isNotBlank()
+        if (prefs.getBoolean("setting_parental_enabled", false) && parentalProtectedSections.contains(section) && configured) {
+            pendingProtectedSection = section
+            parentalPinInput = ""
+            parentalPinError = ""
+        } else { selected = section; activeCategory = "All" }
+    }
 
     suspend fun reconnectSavedConnection() {
         if (!hasSavedConnection || !prefs.getBoolean("setting_auto_connect", true)) return
@@ -247,7 +259,40 @@ private fun VisionHome(
     )) {
         if (showSplash) {
             VisionSplash()
-        } else Row(Modifier.fillMaxSize().background(Ink)) {
+        } else {
+            if (pendingProtectedSection != null) {
+                AlertDialog(
+                    onDismissRequest = { pendingProtectedSection = null },
+                    title = { Text("Parental PIN required") },
+                    text = {
+                        Column {
+                            Text("Enter your PIN to open ${pendingProtectedSection}.")
+                            OutlinedTextField(
+                                value = parentalPinInput,
+                                onValueChange = { parentalPinInput = it.filter(Char::isDigit).take(8); parentalPinError = "" },
+                                label = { Text("4–8 digit PIN") },
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                                singleLine = true
+                            )
+                            if (parentalPinError.isNotBlank()) Text(parentalPinError, color = Color(0xFFFF7777))
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = {
+                        val ok = parentalPinInput.length in 4..8 && verifyParentalPin(
+                            parentalPinInput, prefs.getString("parental_pin_salt", "").orEmpty(),
+                            prefs.getString("parental_pin_hash", "").orEmpty())
+                        if (ok) {
+                            selected = pendingProtectedSection ?: "Home"
+                            activeCategory = "All"
+                            pendingProtectedSection = null
+                            parentalPinInput = ""
+                        } else parentalPinError = "Incorrect PIN. Try again."
+                    }) { Text("Unlock") } },
+                    dismissButton = { TextButton(onClick = { pendingProtectedSection = null }) { Text("Cancel") } }
+                )
+            }
+            Row(Modifier.fillMaxSize().background(Ink)) {
             Column(
                 Modifier.width(190.dp).fillMaxHeight()
                     .background(Color(0xFF071321))
@@ -278,7 +323,7 @@ private fun VisionHome(
                                 else if (isSelected) Modifier.border(1.dp, Color(0xFF168FE0), RoundedCornerShape(13.dp))
                                 else Modifier
                             )
-                            .clickable { selected = item; activeCategory = "All" }
+                            .clickable { requestSection(item) }
                             .focusable()
                             .padding(horizontal = 13.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -767,9 +812,86 @@ private fun VisionHome(
                 }
             }
         }
+        }
     }
 }
 
+
+private fun parentalPinHash(pin: String, salt: ByteArray): String {
+    val spec = javax.crypto.spec.PBEKeySpec(pin.toCharArray(), salt, 120_000, 256)
+    return try {
+        javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec)
+            .encoded.joinToString("") { "%02x".format(it) }
+    } finally { spec.clearPassword() }
+}
+
+private fun verifyParentalPin(pin: String, saltHex: String, expectedHash: String): Boolean = try {
+    val salt = saltHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    val actual = parentalPinHash(pin, salt)
+    java.security.MessageDigest.isEqual(actual.toByteArray(Charsets.UTF_8), expectedHash.toByteArray(Charsets.UTF_8))
+} catch (_: Exception) { false }
+
+@Composable
+private fun ParentalControlsPanel(prefs: android.content.SharedPreferences) {
+    var enabled by remember { mutableStateOf(prefs.getBoolean("setting_parental_enabled", false)) }
+    var newPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var currentPin by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var changing by remember { mutableStateOf(false) }
+    val configured = prefs.getString("parental_pin_hash", "").orEmpty().isNotBlank()
+    Text("Protect selected entertainment sections with a local PIN.", color = Muted, fontSize = 12.sp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).background(SurfaceDark, RoundedCornerShape(9.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Enable parental controls", color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text(if (configured) "PIN configured on this device" else "Set a PIN before enabling protection", color = Muted, fontSize = 10.sp)
+        }
+        Switch(checked = enabled, onCheckedChange = {
+            if (it && !configured) message = "Set a PIN first, then enable protection."
+            else { enabled = it; prefs.edit().putBoolean("setting_parental_enabled", it).apply()
+                message = if (it) "Protection enabled." else "Protection disabled." }
+        })
+    }
+    Text("Protected sections: Movies, Series and Catch-up. Live TV and TV Guide remain accessible.", color = Muted, fontSize = 11.sp)
+    Spacer(Modifier.height(8.dp))
+    if (configured && !changing) {
+        OutlinedButton(onClick = { changing = true; currentPin = ""; newPin = ""; confirmPin = ""; message = "" }) { Text("Change parental PIN") }
+    } else {
+        if (configured) OutlinedTextField(currentPin, { currentPin = it.filter(Char::isDigit).take(8) },
+            label = { Text("Current PIN") }, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword), singleLine = true)
+        OutlinedTextField(newPin, { newPin = it.filter(Char::isDigit).take(8) },
+            label = { Text(if (configured) "New PIN (4–8 digits)" else "Create PIN (4–8 digits)") },
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword), singleLine = true)
+        OutlinedTextField(confirmPin, { confirmPin = it.filter(Char::isDigit).take(8) },
+            label = { Text("Confirm PIN") }, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword), singleLine = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                val validCurrent = !configured || verifyParentalPin(currentPin,
+                    prefs.getString("parental_pin_salt", "").orEmpty(), prefs.getString("parental_pin_hash", "").orEmpty())
+                when {
+                    !validCurrent -> message = "Current PIN is incorrect."
+                    newPin.length !in 4..8 -> message = "Choose a PIN with 4 to 8 digits."
+                    newPin != confirmPin -> message = "The PIN entries do not match."
+                    else -> {
+                        val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+                        val saltHex = salt.joinToString("") { "%02x".format(it) }
+                        prefs.edit().putString("parental_pin_salt", saltHex).putString("parental_pin_hash", parentalPinHash(newPin, salt)).apply()
+                        if (!configured) { enabled = true; prefs.edit().putBoolean("setting_parental_enabled", true).apply() }
+                        changing = false; currentPin = ""; newPin = ""; confirmPin = ""
+                        message = "PIN saved securely."
+                    }
+                }
+            }) { Text(if (configured) "Save new PIN" else "Save PIN") }
+            if (configured) TextButton(onClick = { changing = false; message = "" }) { Text("Cancel") }
+        }
+    }
+    if (message.isNotBlank()) Text(message, color = Accent, fontSize = 11.sp)
+    Text("PIN is stored as a salted PBKDF2 hash in encrypted app preferences. If forgotten, clearing app data resets local settings.", color = Muted, fontSize = 10.sp)
+}
 
 @Composable
 private fun PersistentSettingToggle(prefs: android.content.SharedPreferences, key: String, label: String, defaultValue: Boolean = false, description: String? = null) {
@@ -862,10 +984,7 @@ private fun SettingsHub(prefs: android.content.SharedPreferences) {
                 PersistentSettingToggle(prefs, "setting_recording_notifications", "Notify when recording support is available")
                 Text("Recording is not implemented yet. It requires a compatible provider API or recording destination; these switches do not start recordings.", color = Muted, fontSize = 11.sp)
             }
-            "Parental Controls" -> {
-                PersistentSettingToggle(prefs, "setting_parental_enabled", "Enable parental controls")
-                Text("PIN enforcement and content locking are not yet implemented; this preference alone does not protect content. PIN setup and restrictions are planned for the security stage.", color = Muted, fontSize = 11.sp)
-            }
+            "Parental Controls" -> { ParentalControlsPanel(prefs) }
             "Account" -> {
                 PersistentSettingToggle(prefs, "setting_account_local_backup", "Include preferences in local backup", true)
                 Text("Credentials remain encrypted in app storage. Cloud sync and account sign-in require a backend and are not available in this build.", color = Muted, fontSize = 11.sp)
