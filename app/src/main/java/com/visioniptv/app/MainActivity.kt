@@ -120,7 +120,8 @@ private fun VisionHome(
         } else Row(Modifier.fillMaxSize().background(Ink)) {
             Column(
                 Modifier.width(190.dp).fillMaxHeight()
-                    .background(Color(0xFF0A111A)).padding(horizontal = 14.dp, vertical = 18.dp)
+                    .background(Color(0xFF0A111A)).verticalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp, vertical = 18.dp)
             ) {
                 Text("VISION", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 Text("IPTV", color = Accent, fontSize = 12.sp, letterSpacing = 5.sp)
