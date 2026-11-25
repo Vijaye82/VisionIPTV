@@ -393,7 +393,7 @@ private fun VisionHome(
                                 try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
                                 catch (_: Exception) { selectedMedia = item }
                             }
-                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) },
+                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L, "") },
                         onEpisodePlay = { episode ->
                             playContent(episode.streamUrl, "${selectedMedia?.title.orEmpty()} - ${episode.title}",
                                 episode.id, "episode:${selectedMedia?.id.orEmpty()}", 0L, buildEpisodeQueueJson(selectedSeriesDetails?.episodes.orEmpty(), episode.id, selectedMedia?.id.orEmpty()))
