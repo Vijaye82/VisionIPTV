@@ -35,6 +35,8 @@ class PlayerActivity : ComponentActivity() {
     private var contentTitle = ""
     private var contentKind = ""
     private var requestedResumePosition = 0L
+    private var upNextQueue = org.json.JSONArray()
+    private var nextEpisodeMessage by mutableStateOf("")
     private val progressHandler = Handler(Looper.getMainLooper())
     private val progressSaver = object : Runnable {
         override fun run() {
@@ -50,6 +52,7 @@ class PlayerActivity : ComponentActivity() {
         contentTitle = intent.getStringExtra("content_title").orEmpty()
         contentKind = intent.getStringExtra("content_kind").orEmpty()
         requestedResumePosition = intent.getLongExtra("resume_position_ms", 0L)
+        upNextQueue = try { org.json.JSONArray(intent.getStringExtra("up_next_json") ?: "[]") } catch (_: Exception) { org.json.JSONArray() }
         val serverCandidates = intent.getStringArrayListExtra("server_candidates").orEmpty()
         serverUrls = buildServerUrls(originalUrl, serverCandidates)
         if (serverUrls.isEmpty()) {
@@ -61,6 +64,7 @@ class PlayerActivity : ComponentActivity() {
                 exo.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_BUFFERING) retryMessage = "Buffering stream…"
+                        if (playbackState == Player.STATE_ENDED) playNextEpisode()
                         if (playbackState == Player.STATE_READY) {
                             if (requestedResumePosition > 0L) {
                                 exo.seekTo(requestedResumePosition)
@@ -100,6 +104,10 @@ class PlayerActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme(background = Color(0xFF050A12), surface = Color(0xFF101B29), primary = Color(0xFF12A8FF))) {
                 Box(Modifier.fillMaxSize().background(Color.Black)) {
                     player?.let { exo -> AndroidView(factory = { context -> PlayerView(context).apply { player = exo } }, modifier = Modifier.fillMaxSize()) }
+                    if (nextEpisodeMessage.isNotBlank()) {
+                        Text(nextEpisodeMessage, color = Color.White, fontSize = 15.sp,
+                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xE6101B29)).padding(18.dp))
+                    }
                     if (playbackError || retryMessage.isNotBlank()) {
                         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xE6101B29)).padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(retryMessage, color = Color.White, fontSize = 14.sp)
@@ -118,6 +126,37 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun playNextEpisode() {
+        if (upNextQueue.length() == 0) {
+            saveWatchProgress()
+            nextEpisodeMessage = "Series finished"
+            return
+        }
+        saveWatchProgress()
+        val next = upNextQueue.optJSONObject(0) ?: return
+        val nextUrl = next.optString("url")
+        if (nextUrl.isBlank()) {
+            upNextQueue = org.json.JSONArray()
+            return
+        }
+        val remaining = org.json.JSONArray()
+        for (index in 1 until upNextQueue.length()) {
+            upNextQueue.optJSONObject(index)?.let { remaining.put(it) }
+        }
+        upNextQueue = remaining
+        contentId = next.optString("id")
+        contentTitle = next.optString("title")
+        contentKind = next.optString("kind")
+        requestedResumePosition = 0L
+        serverIndex = 0
+        retryCount = 0
+        serverUrls = buildServerUrls(nextUrl, intent.getStringArrayListExtra("server_candidates").orEmpty())
+        currentUrl = serverUrls.firstOrNull() ?: nextUrl
+        nextEpisodeMessage = "Up next: $contentTitle"
+        playbackError = false
+        playCurrentUrl()
     }
 
     private fun buildServerUrls(original: String, candidates: List<String>): List<String> {
