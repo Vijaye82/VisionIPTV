@@ -42,12 +42,14 @@ class MainActivity : ComponentActivity() {
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             try {
+                val trace = java.io.StringWriter()
+                error.printStackTrace(java.io.PrintWriter(trace))
                 val report = buildString {
                     appendLine("Vision IPTV crash report")
                     appendLine("Thread: " + thread.name)
                     appendLine("Time: " + java.time.Instant.now())
                     appendLine()
-                    error.printStackTrace(java.io.PrintWriter(this))
+                    append(trace.toString())
                 }
                 java.io.File(filesDir, "vision-crash-report.txt").writeText(report)
             } catch (_: Exception) { }
