@@ -698,7 +698,34 @@ private fun VisionHome(
                                             Text(item.title, color = Color.White, fontWeight = FontWeight.SemiBold)
                                             Text(if (item.kind == "movie") "Movie" else "Series", color = Muted, fontSize = 11.sp)
                                         }
-                                        TextButton(onClick = { selectedMedia = item; selected = if (item.kind == "movie") "Movies" else "Series" }) { Text("Open") }
+                                        TextButton(onClick = {
+                                            selectedMedia = item
+                                            selected = if (item.kind == "movie") "Movies" else "Series"
+                                            if (item.kind == "tv") {
+                                                selectedSeriesDetails = null
+                                                seriesEpisodesError = ""
+                                                seriesEpisodesLoading = true
+                                                scope.launch {
+                                                    try {
+                                                        val account = PlaylistAccount(
+                                                            name = "My playlist",
+                                                            serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
+                                                            username = accountUsername,
+                                                            password = accountPassword
+                                                        )
+                                                        val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, item.id)
+                                                        selectedSeriesDetails = details
+                                                        if (details.episodes.isEmpty()) {
+                                                            seriesEpisodesError = "Your provider returned no episodes for this series."
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        seriesEpisodesError = "Could not load episodes: ${e.message ?: "provider error"}"
+                                                    } finally {
+                                                        seriesEpisodesLoading = false
+                                                    }
+                                                }
+                                            }
+                                        }) { Text("Open") }
                                         TextButton(onClick = { toggleSavedMedia(item) }) { Text("Remove") }
                                     }
                                 }
