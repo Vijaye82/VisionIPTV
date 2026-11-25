@@ -658,7 +658,29 @@ private fun VisionHome(
                         Text("VISION IPTV BUILD 2.1.6 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     "TV Guide" -> GuideScreen(channels, epgProgrammes)
-                    "Catch-up" -> CatchupScreen()
+                    "Catch-up" -> CatchupScreen(
+                        channels = channels,
+                        programmes = epgProgrammes,
+                        onPlayArchive = { channel, programme ->
+                            val durationMinutes = ((programme.stopMillis - programme.startMillis) / 60_000L).coerceAtLeast(1L)
+                            val startUtc = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US).apply {
+                                timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            }.format(java.util.Date(programme.startMillis))
+                            val startEpoch = programme.startMillis / 1000L
+                            val endEpoch = programme.stopMillis / 1000L
+                            val template = channel.archiveTemplate
+                            val archiveUrl = if (template.contains("{")) {
+                                template.replace("{duration}", durationMinutes.toString())
+                                    .replace("{start}", startUtc).replace("{utc}", startEpoch.toString())
+                                    .replace("{utcend}", endEpoch.toString()).replace("{timestamp}", startEpoch.toString())
+                                    .replace("{channel}", channel.id).replace("{id}", channel.id).replace("{stream}", channel.id)
+                            } else template
+                            if (archiveUrl.isNotBlank()) playContent(
+                                archiveUrl, channel.name + " • " + programme.title,
+                                channel.id + "|" + programme.startMillis, "catchup", 0L
+                            )
+                        }
+                    )
                     "My List" -> {
                         Text("MY LIST / FAVOURITES", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
