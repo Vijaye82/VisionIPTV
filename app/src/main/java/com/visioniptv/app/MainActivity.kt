@@ -99,6 +99,11 @@ private fun VisionHome(
     var accountPassword by remember { mutableStateOf(prefs.getString("account_password", "") ?: "") }
     var primaryEpgUrl by remember { mutableStateOf(prefs.getString("primary_epg_url", "") ?: "") }
     var backupEpgUrl by remember { mutableStateOf(prefs.getString("backup_epg_url", "") ?: "") }
+    var tmdbToken by remember { mutableStateOf(prefs.getString("tmdb_read_token", "") ?: "") }
+    var movies by remember { mutableStateOf<List<CatalogTitle>>(emptyList()) }
+    var series by remember { mutableStateOf<List<CatalogTitle>>(emptyList()) }
+    var selectedMedia by remember { mutableStateOf<CatalogTitle?>(null) }
+    var mediaStatus by remember { mutableStateOf("Connect an Xtream account to load your Movies and Series library.") }
     var epgProgrammes by remember { mutableStateOf<List<Programme>>(emptyList()) }
     var epgStatus by remember { mutableStateOf("EPG not loaded") }
     var activeServerLabel by remember { mutableStateOf("") }
@@ -191,8 +196,22 @@ private fun VisionHome(
                     .padding(start = 26.dp, end = 26.dp, top = 18.dp, bottom = 12.dp)
             ) {
                 when (selected) {
-                    "Movies" -> CinemaBrowse("Movies", showMovieCountrySubcategories)
-                    "Series" -> CinemaBrowse("TV Shows", showSeriesCountrySubcategories)
+                    "Movies" -> CatalogScreen("Movies", movies, selectedMedia, mediaStatus,
+                        onSelect = { item ->
+                            selectedMedia = item
+                            if (tmdbToken.isNotBlank() && item.tmdbId == null) scope.launch {
+                                try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
+                                catch (_: Exception) { selectedMedia = item }
+                            }
+                        }, onPlay = { play(it.streamUrl) }, onBack = { selectedMedia = null })
+                    "Series" -> CatalogScreen("Series", series, selectedMedia, mediaStatus,
+                        onSelect = { item ->
+                            selectedMedia = item
+                            if (tmdbToken.isNotBlank() && item.tmdbId == null) scope.launch {
+                                try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
+                                catch (_: Exception) { selectedMedia = item }
+                            }
+                        }, onPlay = { }, onBack = { selectedMedia = null })
                     "Live TV" -> {
                         Text("LIVE TV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                         Text("${channels.size} channels  •  Live entertainment", color = Muted, fontSize = 12.sp)
@@ -299,6 +318,22 @@ private fun VisionHome(
                                     }
                                     channels = result.first
                                     activeServerLabel = result.second
+                                    movies = emptyList()
+                                    series = emptyList()
+                                    selectedMedia = null
+                                    if (connectionType == "Xtream") {
+                                        mediaStatus = "Loading Movies and Series from your provider…"
+                                        try {
+                                            val catalog = MediaCatalogRepository()
+                                            movies = catalog.loadMovies(account, activeServerLabel)
+                                            series = catalog.loadSeries(account, activeServerLabel)
+                                            mediaStatus = "${movies.size} movies • ${series.size} series loaded"
+                                        } catch (catalogError: Exception) {
+                                            mediaStatus = "Live TV connected; VOD catalogue unavailable: ${catalogError.message ?: "provider error"}"
+                                        }
+                                    } else {
+                                        mediaStatus = "M3U playlists provide Live TV only here. Xtream login is needed for Movies and Series."
+                                    }
                                     prefs.edit()
                                         .putString("connection_type", connectionType)
                                         .putString("playlist_url", playlistUrl)
@@ -347,6 +382,17 @@ private fun VisionHome(
                         Spacer(Modifier.height(16.dp))
                         Spacer(Modifier.height(12.dp))
                         Spacer(Modifier.height(16.dp))
+                        Text("MOVIE & SERIES INFORMATION", color = Accent, fontWeight = FontWeight.Bold)
+                        Text("Optional TMDb API Read Access Token. This enriches provider titles with artwork, ratings, descriptions, genres and cast. Keep this token private.", color = Muted, fontSize = 12.sp)
+                        OutlinedTextField(tmdbToken, { tmdbToken = it }, label = { Text("TMDb API Read Access Token") },
+                            placeholder = { Text("Paste your TMDb Bearer token") }, modifier = Modifier.fillMaxWidth(),
+                            singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                        Button(onClick = {
+                            prefs.edit().putString("tmdb_read_token", tmdbToken.trim()).apply()
+                            mediaStatus = "TMDb token saved. Open a movie or series to load its extra information."
+                        }) { Text("Save TMDb Token") }
+                        Text("TMDb credits will be shown in About. This product uses the TMDb API but is not endorsed or certified by TMDb.", color = Muted, fontSize = 11.sp)
+                        Spacer(Modifier.height(14.dp))
                         Text("EPG SOURCES & CHANNEL LOGOS", color = Accent, fontWeight = FontWeight.Bold)
                         Text("If your provider's guide is empty or incomplete, Vision IPTV can try these XMLTV sources in order and fill missing programmes and channel icons. Successful feeds are compressed and cached on this device for offline fallback.", color = Muted, fontSize = 12.sp)
                         OutlinedTextField(primaryEpgUrl, { primaryEpgUrl = it }, label = { Text("Alternative XMLTV / EPG URL") }, placeholder = { Text("Paste primary XMLTV guide link") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
@@ -543,6 +589,59 @@ private fun SettingsHub(prefs: android.content.SharedPreferences) {
                 Text("Vision IPTV • Settings foundation", color = Color.White, fontWeight = FontWeight.SemiBold)
                 Text("Crash reports can be shared using Diagnostics further down this page. Update checks and full device diagnostics are still to be added.", color = Muted, fontSize = 11.sp)
             }
+        }
+    }
+}
+
+@Composable
+private fun CatalogScreen(
+    title: String,
+    items: List<CatalogTitle>,
+    selected: CatalogTitle?,
+    status: String,
+    onSelect: (CatalogTitle) -> Unit,
+    onPlay: (CatalogTitle) -> Unit,
+    onBack: () -> Unit
+) {
+    if (selected != null) {
+        Text("‹  BACK TO $title", color = Accent, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onBack() }.padding(vertical = 8.dp).focusable())
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            AsyncImage(model = selected.posterUrl, contentDescription = selected.title + " poster",
+                modifier = Modifier.width(190.dp).height(270.dp))
+            Column(Modifier.weight(1f)) {
+                Text(selected.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                Text(listOfNotNull(selected.year.takeIf { it.isNotBlank() }, selected.genres.takeIf { it.isNotBlank() }, selected.runtime.takeIf { it.isNotBlank() }).joinToString(" • "),
+                    color = Muted, fontSize = 13.sp)
+                if (selected.rating != null) Text("TMDb ★ ${"%.1f".format(selected.rating)}  •  ${selected.voteCount} votes", color = Accent, fontWeight = FontWeight.Bold)
+                if (selected.director.isNotBlank()) Text("Director: ${selected.director}", color = Muted, fontSize = 12.sp)
+                if (selected.cast.isNotBlank()) Text("Cast: ${selected.cast}", color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                Text(selected.overview.ifBlank { "No synopsis is available from your provider or metadata source." }, color = Color.White, fontSize = 14.sp)
+                Spacer(Modifier.height(14.dp))
+                if (selected.kind == "movie" && selected.streamUrl.isNotBlank()) Button(onClick = { onPlay(selected) }) { Text("Play movie") }
+                else Text("Series details loaded. Episode playback will be added with the series episode browser.", color = Muted, fontSize = 12.sp)
+                if (selected.tmdbId == null) Text("No confident TMDb match found. Provider information is shown instead.", color = Muted, fontSize = 11.sp)
+            }
+        }
+    } else {
+        Text(title.uppercase(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text(status, color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(12.dp))
+        if (items.isEmpty()) {
+            EmptyPanel("No $title loaded", status)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(items, key = { "${it.kind}-${it.id}" }) { item ->
+                    Column(Modifier.width(142.dp).clickable { onSelect(item) }.focusable()) {
+                        AsyncImage(model = item.posterUrl, contentDescription = item.title,
+                            modifier = Modifier.fillMaxWidth().height(205.dp))
+                        Text(item.title, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                        Text(item.year, color = Muted, fontSize = 11.sp)
+                    }
+                }
+            }
+            Text("Select a title to view its information.", color = Muted, fontSize = 11.sp)
         }
     }
 }
