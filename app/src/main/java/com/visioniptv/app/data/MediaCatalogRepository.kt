@@ -49,6 +49,29 @@ data class SeriesDetails(
 )
 
 class MediaCatalogRepository {
+    // Bound provider payloads so oversized Xtream responses cannot exhaust TV memory.
+    private val maxCatalogResponseBytes = 24L * 1024L * 1024L
+    private val maxDetailResponseBytes = 8L * 1024L * 1024L
+
+    private fun readBodyBounded(response: okhttp3.Response, maxBytes: Long): String {
+        val body = response.body ?: return ""
+        if (body.contentLength() > maxBytes) {
+            throw java.io.IOException("Provider response is too large (${body.contentLength()} bytes)")
+        }
+        val source = body.source()
+        val buffer = okio.Buffer()
+        var total = 0L
+        while (total <= maxBytes) {
+            val read = source.read(buffer, minOf(8192L, maxBytes - total + 1L))
+            if (read == -1L) break
+            total += read
+            if (total > maxBytes) {
+                throw java.io.IOException("Provider response exceeded the ${maxBytes / (1024L * 1024L)} MB safety limit")
+            }
+        }
+        return buffer.readUtf8()
+    }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -60,7 +83,7 @@ class MediaCatalogRepository {
             if (!bearer.isNullOrBlank()) builder.header("Authorization", "Bearer $bearer")
             client.newCall(builder.build()).execute().use { response ->
                 if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
-                JSONObject(response.body?.string() ?: "{}")
+                JSONObject(readBodyBounded(response, maxDetailResponseBytes).ifBlank { "{}" })
             }
         }
 
@@ -74,7 +97,7 @@ class MediaCatalogRepository {
         val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
-            org.json.JSONArray(response.body?.string() ?: "[]")
+            org.json.JSONArray(readBodyBounded(response, maxCatalogResponseBytes).ifBlank { "[]" })
         }
     }
 
