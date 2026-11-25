@@ -824,7 +824,15 @@ private fun VisionHome(
                         }
                     }
                     else -> Column {
-                        HomeDashboard(onNavigate = { selected = it })
+                        HomeDashboard(
+                            movies = movies,
+                            series = series,
+                            channels = channels,
+                            programmes = epgProgrammes,
+                            onNavigate = { selected = it },
+                            onPlayMovie = { item -> playContent(item.streamUrl, item.title, item.id, "movie", 0L) },
+                            onPlayChannel = { channel -> play(channel.streamUrl) }
+                        )
                         Spacer(Modifier.height(8.dp))
                         Text(status, color = Muted, fontSize = 11.sp)
                         if (activeServerLabel.isNotBlank()) {
@@ -1137,55 +1145,149 @@ private fun VisionSplash() {
 }
 
 @Composable
-private fun HomeDashboard(onNavigate: (String) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+private fun HomeDashboard(
+    movies: List<CatalogTitle>,
+    series: List<CatalogTitle>,
+    channels: List<TvChannel>,
+    programmes: List<Programme>,
+    onNavigate: (String) -> Unit,
+    onPlayMovie: (CatalogTitle) -> Unit,
+    onPlayChannel: (TvChannel) -> Unit
+) {
+    val featured = movies.firstOrNull { it.backdropUrl.isNotBlank() } ?: movies.firstOrNull()
+    val trendingMovies = movies.sortedByDescending { it.rating ?: 0.0 }.take(12)
+    val recentMovies = movies.take(12)
+    val recentSeries = series.take(12)
+    val now = System.currentTimeMillis()
+    val onNow = programmes.count { it.startMillis <= now && it.stopMillis > now }
+    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("WELCOME TO VISION", color = Accent, fontSize = 11.sp,
-                letterSpacing = 2.4.sp, fontWeight = FontWeight.Bold)
-            Text("Your entertainment, your way", color = Color.White,
-                fontSize = 23.sp, fontWeight = FontWeight.Bold)
+            Text("WELCOME TO VISION", color = Accent, fontSize = 11.sp, letterSpacing = 2.4.sp, fontWeight = FontWeight.Bold)
+            Text("Your entertainment, your way", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+            Text("${movies.size} movies  •  ${series.size} series  •  ${channels.size} live channels",
+                color = Muted, fontSize = 11.sp)
         }
-        Surface(
-            color = Color(0xFF102B25),
-            shape = RoundedCornerShape(20.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1F765F))
-        ) {
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically) {
+        Surface(color = Color(0xFF102B25), shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1F765F))) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).background(Color(0xFF38D889), RoundedCornerShape(50)))
                 Spacer(Modifier.width(7.dp))
-                Text("READY TO WATCH", color = Color(0xFFB8F4D5),
-                    fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("LIVE NOW: $onNow", color = Color(0xFFB8F4D5), fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
-    HeroBanner(onClick = { onNavigate("Movies") })
-    Spacer(Modifier.height(17.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        SectionHeading("FEATURED FOR YOU")
-        Spacer(Modifier.weight(1f))
-        Text("MOVIES & SERIES", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    }
-    PosterShelf(listOf("Featured movie", "Popular series", "New release", "Recommended", "Family favourite"))
-    Spacer(Modifier.height(15.dp))
-    SectionHeading("CONTINUE WATCHING")
-    PosterShelf(listOf("Recently watched", "Continue watching", "Next episode", "Your list"))
-    Spacer(Modifier.height(15.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        SectionHeading("EXPLORE VISION")
-        Spacer(Modifier.weight(1f))
-        Text("CHOOSE A CATEGORY", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    }
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(listOf("Live TV", "Movies", "TV Shows", "TV Guide", "Catch-up")) { name ->
-            FocusTile(name) { onNavigate(if (name == "TV Shows") "Series" else name) }
+    if (featured != null) {
+        Box(Modifier.fillMaxWidth().height(205.dp).clip(RoundedCornerShape(12.dp))) {
+            if (featured.backdropUrl.isNotBlank()) {
+                AsyncImage(model = featured.backdropUrl, contentDescription = null,
+                    modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            } else if (featured.posterUrl.isNotBlank()) {
+                AsyncImage(model = featured.posterUrl, contentDescription = null,
+                    modifier = Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            }
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xEE050A12), Color(0x99050A12), Color.Transparent))))
+            Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.72f).padding(18.dp)) {
+                Text("FEATURED FROM YOUR LIBRARY", color = Accent, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                Text(featured.title, color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black, maxLines = 2)
+                Text(listOf(featured.year, featured.category).filter { it.isNotBlank() }.joinToString("  •  "),
+                    color = Muted, fontSize = 11.sp, maxLines = 1)
+                Spacer(Modifier.height(9.dp))
+                Button(onClick = { onPlayMovie(featured) }) { Text("WATCH NOW") }
+            }
         }
+    } else {
+        HeroBanner("Your library starts here", onClick = { onNavigate("Movies") })
+    }
+    Spacer(Modifier.height(17.dp))
+    if (trendingMovies.isNotEmpty()) {
+        SectionHeading("TOP MOVIES")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(trendingMovies, key = { "home-movie-${it.id}" }) { item ->
+                HomeMediaCard(item.title, item.posterUrl, item.year, item.rating?.let { "★ %.1f".format(it) }.orEmpty(),
+                    onClick = { onPlayMovie(item) })
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
+    if (recentSeries.isNotEmpty()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionHeading("SERIES TO EXPLORE")
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onNavigate("Series") }) { Text("SEE ALL") }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(recentSeries, key = { "home-series-${it.id}" }) { item ->
+                HomeMediaCard(item.title, item.posterUrl, item.year, item.category,
+                    onClick = { onNavigate("Series") })
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
+    if (recentMovies.isNotEmpty()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionHeading("RECENTLY ADDED MOVIES")
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onNavigate("Movies") }) { Text("SEE ALL") }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(recentMovies, key = { "home-recent-${it.id}" }) { item ->
+                HomeMediaCard(item.title, item.posterUrl, item.year, item.category,
+                    onClick = { onPlayMovie(item) })
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
+    if (channels.isNotEmpty()) {
+        SectionHeading("LIVE TV")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            items(channels.take(10), key = { "home-channel-${it.id}" }) { channel ->
+                Column(Modifier.width(145.dp).background(SurfaceDark, RoundedCornerShape(9.dp))
+                    .clickable { onPlayChannel(channel) }.focusable().padding(10.dp)) {
+                    if (channel.logo.isNotBlank()) AsyncImage(model = channel.logo, contentDescription = null,
+                        modifier = Modifier.size(42.dp), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                    Text(channel.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2)
+                    Text(channel.group, color = Muted, fontSize = 10.sp, maxLines = 1)
+                }
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
+    SectionHeading("EXPLORE VISION")
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(listOf("Live TV", "Movies", "Series", "TV Guide", "Catch-up", "My List")) { name ->
+            FocusTile(name) { onNavigate(name) }
+        }
+    }
+    if (movies.isEmpty() && series.isEmpty() && channels.isEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        EmptyPanel("Connect your TV service", "Add an authorised M3U or Xtream account in Settings. Your provider's real catalogue and channels will appear here.")
+        Button(onClick = { onNavigate("Settings") }) { Text("OPEN SETTINGS") }
     }
 }
 
+@Composable
+private fun HomeMediaCard(title: String, poster: String, subtitle: String, meta: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Column(Modifier.width(132.dp).onFocusChanged { focused = it.isFocused }.focusable()
+        .clickable { onClick() }) {
+        Box(Modifier.fillMaxWidth().height(154.dp).background(SurfaceDark, RoundedCornerShape(8.dp))
+            .then(if (focused) Modifier.border(3.dp, Accent, RoundedCornerShape(8.dp)) else Modifier)) {
+            if (poster.isNotBlank()) {
+                AsyncImage(model = poster, contentDescription = title, modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            } else {
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFF344B5D), Color(0xFF17222F)))),
+                    contentAlignment = Alignment.Center) {
+                    Text("VISION", color = Muted, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+        Text(title, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 2, modifier = Modifier.padding(top = 5.dp))
+        Text(listOf(subtitle, meta).filter { it.isNotBlank() }.joinToString(" • "),
+            color = Muted, fontSize = 9.sp, maxLines = 1)
+    }
+}
 
 @Composable
 private fun CinemaBrowse(title: String, showCategories: Boolean) {
