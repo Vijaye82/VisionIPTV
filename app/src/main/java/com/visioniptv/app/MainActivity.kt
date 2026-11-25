@@ -593,6 +593,7 @@ private fun VisionHome(
                                     modifier = Modifier.padding(horizontal = 15.dp, vertical = 8.dp))
                             }
                         }
+                        val historyRefreshSnapshot = watchHistoryRefresh
                         val watchPrefs = context.getSharedPreferences("vision_watch_progress", android.content.Context.MODE_PRIVATE)
                         val watchHistory = try {
                             org.json.JSONArray(watchPrefs.getString("watch_history", "[]") ?: "[]")
