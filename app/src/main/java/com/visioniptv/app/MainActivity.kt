@@ -401,6 +401,30 @@ private fun VisionHome(
                             }
                         }
                     }
+                    "TV Guide" -> GuideScreen(channels, epgProgrammes)
+                    "Catch-up" -> CatchupScreen(
+                        channels = channels,
+                        programmes = epgProgrammes,
+                        onPlayArchive = { channel, programme ->
+                            val durationMinutes = ((programme.stopMillis - programme.startMillis) / 60_000L).coerceAtLeast(1L)
+                            val startUtc = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US).apply {
+                                timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            }.format(java.util.Date(programme.startMillis))
+                            val startEpoch = programme.startMillis / 1000L
+                            val endEpoch = programme.stopMillis / 1000L
+                            val template = channel.archiveTemplate
+                            val archiveUrl = if (template.contains("{")) {
+                                template.replace("{duration}", durationMinutes.toString())
+                                    .replace("{start}", startUtc).replace("{utc}", startEpoch.toString())
+                                    .replace("{utcend}", endEpoch.toString()).replace("{timestamp}", startEpoch.toString())
+                                    .replace("{channel}", channel.id).replace("{id}", channel.id).replace("{stream}", channel.id)
+                            } else template
+                            if (archiveUrl.isNotBlank()) playContent(
+                                archiveUrl, channel.name + " • " + programme.title,
+                                channel.id + "|" + programme.startMillis, "catchup", 0L
+                            )
+                        }
+                    )
                     "Settings" -> {
                         Text("SETTINGS", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                         Text("Connections & options", color = Muted, fontSize = 13.sp)
@@ -1266,19 +1290,90 @@ private fun GuideScreen(channels: List<TvChannel>, programmes: List<Programme>) 
     }
 }
 @Composable
-private fun CatchupScreen() {
-    Text("CATCH-UP", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-    Text("Watch programmes again when your provider supports archive playback.", color = Muted, fontSize = 12.sp)
-    Spacer(Modifier.height(12.dp))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(listOf("BBC", "ITV", "Channel 4", "Channel 5", "Sky")) { LiveTab(it, it == "BBC") }
+private fun CatchupScreen(
+    channels: List<TvChannel>,
+    programmes: List<Programme>,
+    onPlayArchive: (TvChannel, Programme) -> Unit
+) {
+    var selectedChannel by remember { mutableStateOf("All channels") }
+    var selectedProgramme by remember { mutableStateOf<Programme?>(null) }
+    val channelByProgrammeId = remember(channels) {
+        programmesChannelMap(channels)
     }
-    Spacer(Modifier.height(14.dp))
-    SectionHeading("RECENTLY AIRED")
-    PosterShelf(listOf("Drama highlights", "News bulletin", "Entertainment", "Documentary", "Sports"))
-    Spacer(Modifier.height(14.dp))
-    SectionHeading("POPULAR ON CATCH-UP")
-    PosterShelf(listOf("Recently aired", "Missed episodes", "Weekend highlights", "More to watch"))
+    val availableChannels = channels.filter { it.archiveTemplate.isNotBlank() }
+    val now = System.currentTimeMillis()
+    val replayItems = programmes.mapNotNull { programme ->
+        val channel = channelByProgrammeId[programme.channelId] ?: return@mapNotNull null
+        if (programme.stopMillis > now || programme.stopMillis <= programme.startMillis) return@mapNotNull null
+        if (channel.archiveDays > 0 && programme.startMillis < now - channel.archiveDays * 86_400_000L) return@mapNotNull null
+        channel to programme
+    }.filter { selectedChannel == "All channels" || it.first.id == selectedChannel }
+        .sortedByDescending { it.second.startMillis }
+    Text("CATCH-UP TV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+    Text("Replay programmes listed in your EPG when your provider exposes archive playback.", color = Muted, fontSize = 12.sp)
+    Spacer(Modifier.height(10.dp))
+    Text("${availableChannels.size} archive-enabled channels • ${replayItems.size} replayable programmes in your guide",
+        color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    if (channels.isEmpty()) {
+        EmptyPanel("Connect your TV service", "Add an M3U or Xtream account in Settings to check archive support.")
+    } else if (programmes.isEmpty()) {
+        EmptyPanel("No programme guide loaded", "Catch-up needs EPG programme times. Load your provider guide or an XMLTV source in Settings.")
+    } else if (availableChannels.isEmpty()) {
+        EmptyPanel("No archive support detected", "Your current playlist has not declared a catch-up source and your Xtream service has not marked any channels as archive-enabled.")
+    } else {
+        Spacer(Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            item {
+                FilterChip(selected = selectedChannel == "All channels", onClick = { selectedChannel = "All channels" },
+                    label = { Text("All channels") })
+            }
+            items(availableChannels) { channel ->
+                FilterChip(selected = selectedChannel == channel.id, onClick = { selectedChannel = channel.id },
+                    label = { Text(channel.name, maxLines = 1) })
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        if (replayItems.isEmpty()) {
+            EmptyPanel("No replay programmes available", "The loaded guide has no past programmes within the archive window declared by your provider.")
+        } else {
+            replayItems.take(150).forEach { (channel, programme) ->
+                val expanded = selectedProgramme == programme
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                        .background(SurfaceDark, RoundedCornerShape(9.dp))
+                        .border(if (expanded) 1.dp else 0.dp, if (expanded) Accent else Color.Transparent, RoundedCornerShape(9.dp))
+                        .clickable { selectedProgramme = if (expanded) null else programme }
+                        .focusable().padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (channel.logo.isNotBlank()) AsyncImage(model = channel.logo, contentDescription = null, modifier = Modifier.size(42.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(programme.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2)
+                        Text(channel.name + " • " + java.text.SimpleDateFormat("EEE d MMM, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(programme.startMillis)),
+                            color = Muted, fontSize = 10.sp)
+                        Text("Duration: " + ((programme.stopMillis - programme.startMillis) / 60_000L).coerceAtLeast(1L) + " min",
+                            color = Muted, fontSize = 10.sp)
+                        if (expanded && programme.description.isNotBlank()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(programme.description, color = Color(0xFFD0DCE6), fontSize = 11.sp)
+                        }
+                    }
+                    Button(onClick = { onPlayArchive(channel, programme) }) { Text("Replay") }
+                }
+            }
+        }
+    }
+}
+
+private fun programmesChannelMap(channels: List<TvChannel>): Map<String, TvChannel> {
+    val result = mutableMapOf<String, TvChannel>()
+    channels.forEach { channel ->
+        result[channel.id] = channel
+        if (channel.tvgId.isNotBlank()) result[channel.tvgId] = channel
+        result[channel.name] = channel
+    }
+    return result
 }
 
 @Composable
