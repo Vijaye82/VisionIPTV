@@ -1080,9 +1080,34 @@ private fun CatalogScreen(
                         seriesDetails.episodes.isEmpty() -> Text("No playable episodes were returned.", color = Muted, fontSize = 12.sp)
                         else -> {
                             val seasons = seriesDetails.episodes.groupBy { it.seasonNumber }.toSortedMap()
-                            seasons.forEach { (season, seasonEpisodes) ->
-                                Text(if (season > 0) "Season $season" else "Specials", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                seasonEpisodes.forEach { episode ->
+                            val seasonNumbers = seasons.keys.toList()
+                            var activeSeason by remember(selected.id) {
+                                mutableIntStateOf(seasonNumbers.firstOrNull() ?: 0)
+                            }
+                            val visibleEpisodes = seasons[activeSeason].orEmpty()
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("SEASON", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    items(seasonNumbers) { seasonNumber ->
+                                        val seasonLabel = if (seasonNumber > 0) "Season $seasonNumber" else "Specials"
+                                        FilterChip(
+                                            selected = activeSeason == seasonNumber,
+                                            onClick = { activeSeason = seasonNumber },
+                                            label = { Text(seasonLabel, maxLines = 1) }
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                "${visibleEpisodes.size} episodes",
+                                color = Muted,
+                                fontSize = 11.sp
+                            )
+                            visibleEpisodes.forEach { episode ->
                                     var episodeFocused by remember(episode.id) { mutableStateOf(false) }
                                     Row(
                                         Modifier.fillMaxWidth().padding(vertical = 3.dp)
