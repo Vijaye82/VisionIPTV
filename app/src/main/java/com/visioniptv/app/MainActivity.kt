@@ -14,6 +14,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import coil.compose.AsyncImage
@@ -1157,8 +1160,8 @@ private fun CatalogScreen(
             EmptyPanel(if (items.isEmpty()) "No $title loaded" else "No matches found",
                 if (items.isEmpty()) status else "Try another search term or category.")
         } else {
-            androidx.compose.foundation.lazy.LazyVerticalGrid(
-                columns = androidx.compose.foundation.lazy.GridCells.Adaptive(142.dp),
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(142.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 620.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
