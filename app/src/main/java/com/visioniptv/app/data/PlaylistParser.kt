@@ -20,7 +20,9 @@ object PlaylistParser {
                         name = title.ifBlank { "Channel ${result.size + 1}" },
                         streamUrl = line, logo = pending["tvg-logo"].orEmpty(),
                         group = pending["group-title"].orEmpty().ifBlank { "All channels" },
-                        number = result.size + 1, tvgId = pending["tvg-id"].orEmpty()
+                        number = result.size + 1, tvgId = pending["tvg-id"].orEmpty(),
+                        archiveTemplate = pending["catchup-source"].orEmpty().ifBlank { pending["catchup"].orEmpty() },
+                        archiveDays = pending["catchup-days"]?.toIntOrNull() ?: 0
                     )
                     pending = emptyMap()
                     title = ""
