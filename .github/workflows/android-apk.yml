@@ -1,4 +1,4 @@
-name: Build and Publish Vision IPTV APK
+name: Build and Publish Vision IPTV APK (including approved beta releases)
 
 on:
   workflow_dispatch:
