@@ -72,6 +72,23 @@ class MainActivity : ComponentActivity() {
                     startActivity(Intent(this, PlayerActivity::class.java).putExtra("url", url)
                         .putStringArrayListExtra("server_candidates", ArrayList(backups)))
                 },
+                playContent = { url, title, id, kind, resumePosition ->
+                    val key = androidx.security.crypto.MasterKey.Builder(this)
+                        .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
+                    val saved = androidx.security.crypto.EncryptedSharedPreferences.create(
+                        this, "vision_preferences", key,
+                        androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                    val backups = if (saved.getString("connection_type", "M3U") == "Xtream") {
+                        listOf("primary_server", "backup_server1", "backup_server2", "backup_server3", "backup_server4")
+                            .mapNotNull { saved.getString(it, null) }.filter { it.isNotBlank() }
+                    } else emptyList()
+                    startActivity(Intent(this, PlayerActivity::class.java).putExtra("url", url)
+                        .putExtra("content_title", title).putExtra("content_id", id).putExtra("content_kind", kind)
+                        .putExtra("resume_position_ms", resumePosition)
+                        .putStringArrayListExtra("server_candidates", ArrayList(backups)))
+                },
                 loadPlaylist = { account -> loadM3u(account) }
             )
         }
@@ -85,6 +102,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun VisionHome(
     play: (String) -> Unit,
+    playContent: (String, String, String, String, Long) -> Unit,
     loadPlaylist: suspend (PlaylistAccount) -> Pair<List<TvChannel>, String>
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -285,7 +303,7 @@ private fun VisionHome(
                                 try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
                                 catch (_: Exception) { selectedMedia = item }
                             }
-                        }, onPlay = { play(it.streamUrl) }, onBack = { selectedMedia = null })
+                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) }, onBack = { selectedMedia = null })
                     "Series" -> CatalogScreen("Series", series, selectedMedia, mediaStatus,
                         seriesDetails = selectedSeriesDetails,
                         episodesLoading = seriesEpisodesLoading,
@@ -316,7 +334,11 @@ private fun VisionHome(
                                 try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
                                 catch (_: Exception) { selectedMedia = item }
                             }
-                        }, onPlay = { }, onEpisodePlay = { play(it.streamUrl) },
+                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) },
+                        onEpisodePlay = { episode ->
+                            playContent(episode.streamUrl, "${selectedMedia?.title.orEmpty()} - ${episode.title}",
+                                episode.id, "episode:${selectedMedia?.id.orEmpty()}", 0L)
+                        },
                         onBack = { selectedMedia = null; selectedSeriesDetails = null; seriesEpisodesError = "" })
                     "Live TV" -> {
                         Text("LIVE TV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
