@@ -50,10 +50,16 @@ class MediaCatalogRepository {
         return "${base.trimEnd('/')}/player_api.php?username=$user&password=$pass&action=$action$extra"
     }
 
+    private suspend fun getArray(url: String): org.json.JSONArray = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
+            org.json.JSONArray(response.body?.string() ?: "[]")
+        }
+    }
+
     suspend fun loadMovies(account: PlaylistAccount, base: String): List<CatalogTitle> {
-        val json = get(xtreamUrl(base, account, "get_vod_streams"))
-        // Xtream list endpoints return arrays; parse through JSONArray to preserve provider ordering.
-        val array = org.json.JSONArray(json.toString())
+        val array = getArray(xtreamUrl(base, account, "get_vod_streams"))
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.optJSONObject(i) ?: continue
@@ -73,13 +79,7 @@ class MediaCatalogRepository {
     }
 
     suspend fun loadSeries(account: PlaylistAccount, base: String): List<CatalogTitle> {
-        val array = org.json.JSONArray(withContext(Dispatchers.IO) {
-            val request = Request.Builder().url(xtreamUrl(base, account, "get_series")).build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
-                response.body?.string() ?: "[]"
-            }
-        })
+        val array = getArray(xtreamUrl(base, account, "get_series"))
         return buildList {
             for (i in 0 until array.length()) {
                 val item = array.optJSONObject(i) ?: continue
