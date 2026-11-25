@@ -1100,24 +1100,94 @@ private fun CatalogScreen(
             }
         }
     } else {
+        var searchText by remember(title) { mutableStateOf("") }
+        var activeCategory by remember(title) { mutableStateOf("All") }
+        var sortMode by remember(title) { mutableStateOf("Provider order") }
+        val categories = listOf("All") + items.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted()
+        val filtered = items.filter { item ->
+            (activeCategory == "All" || item.category.equals(activeCategory, ignoreCase = true)) &&
+                (searchText.isBlank() || item.title.contains(searchText, ignoreCase = true) ||
+                    item.category.contains(searchText, ignoreCase = true) ||
+                    item.year.contains(searchText, ignoreCase = true))
+        }.let { list ->
+            when (sortMode) {
+                "A–Z" -> list.sortedBy { it.title.lowercase() }
+                "Year" -> list.sortedByDescending { it.year.toIntOrNull() ?: 0 }
+                "Rating" -> list.sortedByDescending { it.rating ?: 0.0 }
+                else -> list
+            }
+        }
         Text(title.uppercase(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text(status, color = Muted, fontSize = 12.sp)
-        Spacer(Modifier.height(12.dp))
-        if (items.isEmpty()) {
-            EmptyPanel("No $title loaded", status)
+        Text("${items.size} titles in your provider catalogue", color = Muted, fontSize = 12.sp)
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search ${title.lowercase()}") },
+            placeholder = { Text("Search title, genre or year") },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                focusedBorderColor = Accent, unfocusedBorderColor = Muted,
+                focusedLabelColor = Accent, unfocusedLabelColor = Muted,
+                cursorColor = Accent
+            )
+        )
+        Spacer(Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            items(categories) { category ->
+                FilterChip(selected = activeCategory == category,
+                    onClick = { activeCategory = category },
+                    label = { Text(category, maxLines = 1) })
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("SORT", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            listOf("Provider order", "A–Z", "Year", "Rating").forEach { mode ->
+                FilterChip(selected = sortMode == mode, onClick = { sortMode = mode },
+                    label = { Text(mode, fontSize = 10.sp) })
+            }
+            Spacer(Modifier.weight(1f))
+            Text("${filtered.size} results", color = Accent, fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+        if (filtered.isEmpty()) {
+            EmptyPanel(if (items.isEmpty()) "No $title loaded" else "No matches found",
+                if (items.isEmpty()) status else "Try another search term or category.")
         } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(items, key = { "${it.kind}-${it.id}" }) { item ->
-                    Column(Modifier.width(142.dp).clickable { onSelect(item) }.focusable()) {
-                        AsyncImage(model = item.posterUrl, contentDescription = item.title,
-                            modifier = Modifier.fillMaxWidth().height(205.dp))
-                        Text(item.title, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 2)
-                        Text(item.year, color = Muted, fontSize = 11.sp)
-                        Text(if (isSaved(item)) "★ SAVED" else "＋ ADD TO MY LIST", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onToggleSaved(item) }.padding(top = 5.dp))
+            androidx.compose.foundation.lazy.LazyVerticalGrid(
+                columns = androidx.compose.foundation.lazy.GridCells.Adaptive(142.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 620.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filtered, key = { "${it.kind}-${it.id}" }) { item ->
+                    Column(Modifier.fillMaxWidth().clickable { onSelect(item) }.focusable()) {
+                        Box(Modifier.fillMaxWidth().height(190.dp)
+                            .background(SurfaceDark, RoundedCornerShape(8.dp))) {
+                            if (item.posterUrl.isNotBlank()) {
+                                AsyncImage(model = item.posterUrl, contentDescription = item.title,
+                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                            } else {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("VISION", color = Muted, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
+                        Text(item.title, color = Color.White, fontWeight = FontWeight.SemiBold,
+                            maxLines = 2, fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
+                        Text(listOf(item.year, item.category).filter { it.isNotBlank() }.joinToString(" • "),
+                            color = Muted, fontSize = 10.sp, maxLines = 1)
+                        Text(if (isSaved(item)) "★ SAVED" else "＋ ADD TO MY LIST",
+                            color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onToggleSaved(item) }.padding(top = 5.dp))
                     }
                 }
             }
-            Text("Select a title to view its information.", color = Muted, fontSize = 11.sp)
+            Text("Select a title to view its details and playback options.", color = Muted, fontSize = 11.sp)
         }
     }
 }
