@@ -554,8 +554,17 @@ private fun VisionSplash() {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("VISION", color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp)
-            Text("IPTV", color = Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = 12.sp)
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_vision_launcher),
+                contentDescription = "Vision IPTV logo",
+                modifier = Modifier.size(116.dp)
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("VISION", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Spacer(Modifier.width(8.dp))
+                Text("IPTV", color = Accent, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            }
             Spacer(Modifier.height(22.dp))
             CircularProgressIndicator(color = Accent, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
             Spacer(Modifier.height(12.dp))
