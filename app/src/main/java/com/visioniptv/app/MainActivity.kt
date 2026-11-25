@@ -39,6 +39,20 @@ private val Muted = Color(0xFF9AA8B7)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            try {
+                val report = buildString {
+                    appendLine("Vision IPTV crash report")
+                    appendLine("Thread: " + thread.name)
+                    appendLine("Time: " + java.time.Instant.now())
+                    appendLine()
+                    error.printStackTrace(java.io.PrintWriter(this))
+                }
+                java.io.File(filesDir, "vision-crash-report.txt").writeText(report)
+            } catch (_: Exception) { }
+            previousHandler?.uncaughtException(thread, error)
+        }
         setContent {
             VisionHome(
                 play = { url -> startActivity(Intent(this, PlayerActivity::class.java).putExtra("url", url)) },
@@ -366,7 +380,19 @@ private fun VisionHome(
                             prefs.edit().putBoolean("show_series_country_subcategories", it).apply()
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("VISION IPTV BUILD 2.1.4 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("DIAGNOSTICS", color = Accent, fontWeight = FontWeight.Bold)
+                        Text("If Vision IPTV closes unexpectedly, reopen the app and share the technical crash report here. It does not include your saved IPTV password.", color = Muted, fontSize = 12.sp)
+                        Button(onClick = {
+                            val reportFile = java.io.File(context.filesDir, "vision-crash-report.txt")
+                            val report = if (reportFile.exists()) reportFile.readText() else "No previous crash report is available. Reproduce the crash, reopen Vision IPTV, then share this report."
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "Vision IPTV crash report")
+                                putExtra(Intent.EXTRA_TEXT, report)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Vision IPTV diagnostics"))
+                        }) { Text("Share crash report") }
+                        Text("VISION IPTV BUILD 2.1.6 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     "TV Guide" -> GuideScreen(channels, epgProgrammes)
                     "Catch-up" -> CatchupScreen()
