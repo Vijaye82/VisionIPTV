@@ -74,7 +74,9 @@ class IptvRepository {
                 add(TvChannel(id, item.optString("name", "Channel"),
                     "$activeBase/live/${account.username}/${account.password}/$id.ts",
                     item.optString("stream_icon"), item.optString("category_name", "Live TV"),
-                    i + 1, item.optString("epg_channel_id")))
+                    i + 1, item.optString("epg_channel_id"),
+                    if (item.optInt("tv_archive", 0) == 1) "$activeBase/timeshift/${account.username}/${account.password}/{duration}/{start}/$id.ts" else "",
+                    item.optInt("tv_archive_duration", 0)))
             }
         }
     }
