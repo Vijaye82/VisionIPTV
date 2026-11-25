@@ -28,6 +28,26 @@ data class CatalogTitle(
     val imdbId: String = ""
 )
 
+
+data class SeriesEpisode(
+    val id: String,
+    val title: String,
+    val streamUrl: String,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val containerExtension: String = "mp4",
+    val plot: String = "",
+    val duration: String = "",
+    val stillUrl: String = ""
+)
+
+data class SeriesDetails(
+    val title: String,
+    val overview: String,
+    val posterUrl: String,
+    val episodes: List<SeriesEpisode>
+)
+
 class MediaCatalogRepository {
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -94,6 +114,46 @@ class MediaCatalogRepository {
                 ))
             }
         }
+    }
+
+
+    suspend fun loadSeriesDetails(account: PlaylistAccount, base: String, seriesId: String): SeriesDetails {
+        val url = xtreamUrl(base, account, "get_series_info", "&series_id=${URLEncoder.encode(seriesId, "UTF-8")}")
+        val response = get(url)
+        val info = response.optJSONObject("info") ?: JSONObject()
+        val episodeGroups = response.optJSONObject("episodes") ?: JSONObject()
+        val episodes = buildList {
+            val seasonKeys = (0 until episodeGroups.length()).map { episodeGroups.names()?.optString(it).orEmpty() }
+                .filter { it.isNotBlank() }.sortedBy { it.toIntOrNull() ?: Int.MAX_VALUE }
+            for (seasonKey in seasonKeys) {
+                val season = seasonKey.toIntOrNull() ?: 0
+                val list = episodeGroups.optJSONArray(seasonKey) ?: continue
+                for (i in 0 until list.length()) {
+                    val item = list.optJSONObject(i) ?: continue
+                    val id = item.optString("id")
+                    if (id.isBlank()) continue
+                    val ext = item.optString("container_extension", "mp4").ifBlank { "mp4" }
+                    val episodeInfo = item.optJSONObject("info") ?: JSONObject()
+                    add(SeriesEpisode(
+                        id = id,
+                        title = item.optString("title", "Episode ${item.optInt("episode_num", i + 1)}"),
+                        streamUrl = "${base.trimEnd('/')}/series/${account.username}/${account.password}/$id.$ext",
+                        seasonNumber = season,
+                        episodeNumber = item.optInt("episode_num", i + 1),
+                        containerExtension = ext,
+                        plot = episodeInfo.optString("plot"),
+                        duration = episodeInfo.optString("duration"),
+                        stillUrl = episodeInfo.optString("movie_image")
+                    ))
+                }
+            }
+        }
+        return SeriesDetails(
+            title = info.optString("name"),
+            overview = info.optString("plot"),
+            posterUrl = info.optString("cover"),
+            episodes = episodes.sortedWith(compareBy<SeriesEpisode> { it.seasonNumber }.thenBy { it.episodeNumber })
+        )
     }
 
     suspend fun enrich(title: CatalogTitle, bearer: String): CatalogTitle? {
