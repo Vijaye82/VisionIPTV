@@ -830,8 +830,11 @@ private fun VisionHome(
                             series = series,
                             channels = channels,
                             programmes = epgProgrammes,
+                            watchHistoryRefresh = watchHistoryRefresh,
+                            savedMediaKeys = savedMediaKeys,
                             onNavigate = { selected = it },
                             onPlayMovie = { item -> playContent(item.streamUrl, item.title, item.id, "movie", 0L) },
+                            onResumeMovie = { item, position -> playContent(item.streamUrl, item.title, item.id, "movie", position) },
                             onPlayChannel = { channel -> play(channel.streamUrl) }
                         )
                         Spacer(Modifier.height(8.dp))
@@ -1151,10 +1154,19 @@ private fun HomeDashboard(
     series: List<CatalogTitle>,
     channels: List<TvChannel>,
     programmes: List<Programme>,
+    watchHistoryRefresh: Int,
+    savedMediaKeys: Set<String>,
     onNavigate: (String) -> Unit,
     onPlayMovie: (CatalogTitle) -> Unit,
+    onResumeMovie: (CatalogTitle, Long) -> Unit,
     onPlayChannel: (TvChannel) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val watchPrefs = remember { context.getSharedPreferences("vision_watch_progress", android.content.Context.MODE_PRIVATE) }
+    val watchHistory = remember(watchHistoryRefresh) {
+        try { org.json.JSONArray(watchPrefs.getString("watch_history", "[]") ?: "[]") }
+        catch (_: Exception) { org.json.JSONArray() }
+    }
     val featured = movies.firstOrNull { it.backdropUrl.isNotBlank() } ?: movies.firstOrNull()
     val trendingMovies = movies.sortedByDescending { it.rating ?: 0.0 }.take(12)
     val recentMovies = movies.take(12)
@@ -1200,6 +1212,40 @@ private fun HomeDashboard(
         HeroBanner("Your library starts here", onClick = { onNavigate("Movies") })
     }
     Spacer(Modifier.height(17.dp))
+    val savedMovies = movies.filter { savedMediaKeys.contains("movie|" + it.id) }
+    val continueMovies = buildList {
+        for (index in 0 until watchHistory.length()) {
+            val entry = watchHistory.optJSONObject(index) ?: continue
+            if (entry.optString("kind") != "movie") continue
+            val id = entry.optString("content_id")
+            val item = movies.firstOrNull { it.id == id } ?: continue
+            add(item to entry.optLong("position_ms"))
+        }
+    }.distinctBy { it.first.id }
+    if (continueMovies.isNotEmpty()) {
+        SectionHeading("CONTINUE WATCHING")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(continueMovies, key = { "home-continue-${it.first.id}" }) { (item, position) ->
+                HomeMediaCard(item.title, item.posterUrl, item.year,
+                    "RESUME", onClick = { onResumeMovie(item, position) })
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
+    if (savedMovies.isNotEmpty()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionHeading("FROM YOUR LIST")
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onNavigate("My List") }) { Text("SEE ALL") }
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(savedMovies.take(12), key = { "home-saved-${it.id}" }) { item ->
+                HomeMediaCard(item.title, item.posterUrl, item.year, "SAVED",
+                    onClick = { onPlayMovie(item) })
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
     if (trendingMovies.isNotEmpty()) {
         SectionHeading("TOP MOVIES")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
