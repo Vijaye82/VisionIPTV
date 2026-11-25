@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                     startActivity(Intent(this, PlayerActivity::class.java).putExtra("url", url)
                         .putStringArrayListExtra("server_candidates", ArrayList(backups)))
                 },
-                playContent = { url, title, id, kind, resumePosition ->
+                playContent = { url, title, id, kind, resumePosition, upNextJson ->
                     val key = androidx.security.crypto.MasterKey.Builder(this)
                         .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build()
                     val saved = androidx.security.crypto.EncryptedSharedPreferences.create(
@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
                     startActivity(Intent(this, PlayerActivity::class.java).putExtra("url", url)
                         .putExtra("content_title", title).putExtra("content_id", id).putExtra("content_kind", kind)
                         .putExtra("resume_position_ms", resumePosition)
+                        .putExtra("up_next_json", upNextJson)
                         .putStringArrayListExtra("server_candidates", ArrayList(backups)))
                 },
                 loadPlaylist = { account -> loadM3u(account) }
@@ -106,7 +107,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun VisionHome(
     play: (String) -> Unit,
-    playContent: (String, String, String, String, Long) -> Unit,
+    playContent: (String, String, String, String, Long, String) -> Unit,
     loadPlaylist: suspend (PlaylistAccount) -> Pair<List<TvChannel>, String>
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -361,7 +362,7 @@ private fun VisionHome(
                                 try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
                                 catch (_: Exception) { selectedMedia = item }
                             }
-                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) }, isSaved = { savedMediaKeys.contains("movie|" + it.id) }, onToggleSaved = { toggleSavedMedia(it) }, onBack = { selectedMedia = null })
+                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L, "") }, isSaved = { savedMediaKeys.contains("movie|" + it.id) }, onToggleSaved = { toggleSavedMedia(it) }, onBack = { selectedMedia = null })
                     "Series" -> CatalogScreen("Series", series, selectedMedia, mediaStatus,
                         seriesDetails = selectedSeriesDetails,
                         episodesLoading = seriesEpisodesLoading,
@@ -395,7 +396,7 @@ private fun VisionHome(
                         }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) },
                         onEpisodePlay = { episode ->
                             playContent(episode.streamUrl, "${selectedMedia?.title.orEmpty()} - ${episode.title}",
-                                episode.id, "episode:${selectedMedia?.id.orEmpty()}", 0L)
+                                episode.id, "episode:${selectedMedia?.id.orEmpty()}", 0L, buildEpisodeQueueJson(selectedSeriesDetails?.episodes.orEmpty(), episode.id, selectedMedia?.id.orEmpty()))
                         },
                         isSaved = { savedMediaKeys.contains("tv|" + it.id) },
                         onToggleSaved = { toggleSavedMedia(it) },
@@ -727,7 +728,7 @@ private fun VisionHome(
                                         Button(onClick = {
                                             if (watchedKind == "movie") {
                                                 val item = movies.firstOrNull { it.id == watchedId }
-                                                if (item != null) playContent(item.streamUrl, item.title, item.id, "movie", watchedPosition)
+                                                if (item != null) playContent(item.streamUrl, item.title, item.id, "movie", watchedPosition, "")
                                                 else mediaStatus = "This movie is not in the currently loaded provider catalogue."
                                             } else if (watchedKind.startsWith("episode:")) {
                                                 val seriesId = watchedKind.removePrefix("episode:")
@@ -740,7 +741,7 @@ private fun VisionHome(
                                                         )
                                                         val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, seriesId)
                                                         val episode = details.episodes.firstOrNull { it.id == watchedId }
-                                                        if (episode != null) playContent(episode.streamUrl, watchedTitle, episode.id, watchedKind, watchedPosition)
+                                                        if (episode != null) playContent(episode.streamUrl, watchedTitle, episode.id, watchedKind, watchedPosition, buildEpisodeQueueJson(details.episodes, episode.id, seriesId))
                                                         else mediaStatus = "The saved episode is no longer available from this provider."
                                                     } catch (e: Exception) {
                                                         mediaStatus = "Could not resume episode: ${e.message ?: "provider error"}"
@@ -836,8 +837,8 @@ private fun VisionHome(
                             watchHistoryRefresh = watchHistoryRefresh,
                             savedMediaKeys = savedMediaKeys,
                             onNavigate = { selected = it },
-                            onPlayMovie = { item -> playContent(item.streamUrl, item.title, item.id, "movie", 0L) },
-                            onResumeMovie = { item, position -> playContent(item.streamUrl, item.title, item.id, "movie", position) },
+                            onPlayMovie = { item -> playContent(item.streamUrl, item.title, item.id, "movie", 0L, "") },
+                            onResumeMovie = { item, position -> playContent(item.streamUrl, item.title, item.id, "movie", position, "") },
                             onResumeEpisode = { seriesId, episodeId, episodeTitle, position ->
                                 scope.launch {
                                     try {
@@ -849,7 +850,7 @@ private fun VisionHome(
                                         val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, seriesId)
                                         val episode = details.episodes.firstOrNull { it.id == episodeId }
                                         if (episode != null) playContent(episode.streamUrl, episodeTitle, episode.id,
-                                            "episode:$seriesId", position)
+                                            "episode:$seriesId", position, buildEpisodeQueueJson(details.episodes, episode.id, seriesId))
                                         else mediaStatus = "The saved episode is no longer available from this provider."
                                     } catch (e: Exception) {
                                         mediaStatus = "Could not resume episode: ${e.message ?: "provider error"}"
@@ -871,6 +872,21 @@ private fun VisionHome(
     }
 }
 
+
+private fun buildEpisodeQueueJson(episodes: List<SeriesEpisode>, currentEpisodeId: String, seriesId: String): String {
+    val ordered = episodes.sortedWith(compareBy<SeriesEpisode> { it.seasonNumber }.thenBy { it.episodeNumber })
+    val currentIndex = ordered.indexOfFirst { it.id == currentEpisodeId }
+    if (currentIndex < 0) return "[]"
+    val queue = org.json.JSONArray()
+    ordered.drop(currentIndex + 1).forEach { episode ->
+        queue.put(org.json.JSONObject()
+            .put("url", episode.streamUrl)
+            .put("id", episode.id)
+            .put("title", episode.title)
+            .put("kind", "episode:$seriesId"))
+    }
+    return queue.toString()
+}
 
 private fun parentalPinHash(pin: String, salt: ByteArray): String {
     val spec = javax.crypto.spec.PBEKeySpec(pin.toCharArray(), salt, 120_000, 256)
