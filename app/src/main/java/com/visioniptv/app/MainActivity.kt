@@ -1083,16 +1083,34 @@ private fun CatalogScreen(
                             seasons.forEach { (season, seasonEpisodes) ->
                                 Text(if (season > 0) "Season $season" else "Specials", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 seasonEpisodes.forEach { episode ->
-                                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).background(SurfaceDark, RoundedCornerShape(8.dp)).padding(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    var episodeFocused by remember(episode.id) { mutableStateOf(false) }
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                                            .onFocusChanged { episodeFocused = it.isFocused }
+                                            .background(
+                                                if (episodeFocused) Color(0xFF123B58) else SurfaceDark,
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .border(
+                                                if (episodeFocused) 2.dp else 1.dp,
+                                                if (episodeFocused) Accent else Color(0xFF26384A),
+                                                RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { onEpisodePlay(episode) }
+                                            .focusable()
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
                                         AsyncImage(model = episode.stillUrl.ifBlank { selected.posterUrl }, contentDescription = null,
-                                            modifier = Modifier.width(74.dp).height(48.dp))
+                                            modifier = Modifier.width(74.dp).height(48.dp).clip(RoundedCornerShape(5.dp)))
                                         Column(Modifier.weight(1f)) {
                                             Text("Episode ${episode.episodeNumber}: ${episode.title}", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                                             if (episode.duration.isNotBlank()) Text(episode.duration, color = Muted, fontSize = 10.sp)
                                             if (episode.plot.isNotBlank()) Text(episode.plot, color = Muted, fontSize = 10.sp, maxLines = 2)
                                         }
-                                        Button(onClick = { onEpisodePlay(episode) }) { Text("Play") }
+                                        Text("▶ PLAY", color = if (episodeFocused) Color.White else Accent,
+                                            fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                     }
                                 }
                             }
@@ -1167,7 +1185,23 @@ private fun CatalogScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(filtered, key = { "${it.kind}-${it.id}" }) { item ->
-                    Column(Modifier.fillMaxWidth().clickable { onSelect(item) }.focusable()) {
+                    var cardFocused by remember(item.id) { mutableStateOf(false) }
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .onFocusChanged { cardFocused = it.isFocused }
+                            .background(
+                                if (cardFocused) Color(0xFF102B42) else Color.Transparent,
+                                RoundedCornerShape(10.dp)
+                            )
+                            .border(
+                                if (cardFocused) 2.dp else 1.dp,
+                                if (cardFocused) Accent else Color.Transparent,
+                                RoundedCornerShape(10.dp)
+                            )
+                            .clickable { onSelect(item) }
+                            .focusable()
+                            .padding(5.dp)
+                    ) {
                         Box(Modifier.fillMaxWidth().height(190.dp)
                             .background(SurfaceDark, RoundedCornerShape(8.dp))) {
                             if (item.posterUrl.isNotBlank()) {
