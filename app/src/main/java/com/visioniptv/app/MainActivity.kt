@@ -428,7 +428,7 @@ private fun VisionSplash() {
 private fun HomeDashboard(onNavigate: (String) -> Unit) {
     Text("HOME", color = Accent, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(7.dp))
-    HeroBanner()
+    HeroBanner(onClick = { onNavigate("Movies") })
     Spacer(Modifier.height(13.dp))
     SectionHeading("CONTINUE WATCHING")
     PosterShelf(listOf("The Last of Us", "House of the Dragon", "Breaking Bad", "Recently Watched"))
@@ -471,11 +471,14 @@ private fun CinemaBrowse(title: String, showCategories: Boolean) {
 }
 
 @Composable
-private fun HeroBanner(title: String = "Featured for you") {
+private fun HeroBanner(title: String = "Featured for you", onClick: (() -> Unit)? = null) {
+    var focused by remember { mutableStateOf(false) }
     Box(
         Modifier.fillMaxWidth().height(174.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .then(if (onClick != null) Modifier.clickable { onClick() }.focusable() else Modifier)
             .background(Brush.horizontalGradient(listOf(Color(0xFF102331), Color(0xFF30424F), Color(0xFF111923))), RoundedCornerShape(11.dp))
-            .border(1.dp, Color(0xFF33495A), RoundedCornerShape(11.dp))
+            .border(if (focused) 3.dp else 1.dp, if (focused) Accent else Color(0xFF33495A), RoundedCornerShape(11.dp))
             .padding(19.dp)
     ) {
         Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.72f)) {
@@ -485,7 +488,7 @@ private fun HeroBanner(title: String = "Featured for you") {
             Spacer(Modifier.height(5.dp))
             Text("Discover movies and series from your connected provider.", color = Color(0xFFE1E7EC), fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
-            Text("EXPLORE NOW   •   DETAILS", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(if (onClick != null) "SELECT TO EXPLORE MOVIES" else "EXPLORE NOW", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
