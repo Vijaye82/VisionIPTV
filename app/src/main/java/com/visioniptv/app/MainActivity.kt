@@ -838,6 +838,24 @@ private fun VisionHome(
                             onNavigate = { selected = it },
                             onPlayMovie = { item -> playContent(item.streamUrl, item.title, item.id, "movie", 0L) },
                             onResumeMovie = { item, position -> playContent(item.streamUrl, item.title, item.id, "movie", position) },
+                            onResumeEpisode = { seriesId, episodeId, episodeTitle, position ->
+                                scope.launch {
+                                    try {
+                                        val account = PlaylistAccount(
+                                            name = "My playlist",
+                                            serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
+                                            username = accountUsername, password = accountPassword
+                                        )
+                                        val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, seriesId)
+                                        val episode = details.episodes.firstOrNull { it.id == episodeId }
+                                        if (episode != null) playContent(episode.streamUrl, episodeTitle, episode.id,
+                                            "episode:$seriesId", position)
+                                        else mediaStatus = "The saved episode is no longer available from this provider."
+                                    } catch (e: Exception) {
+                                        mediaStatus = "Could not resume episode: ${e.message ?: "provider error"}"
+                                    }
+                                }
+                            },
                             onPlayChannel = { channel -> play(channel.streamUrl) }
                         )
                         Spacer(Modifier.height(8.dp))
@@ -1290,6 +1308,7 @@ private fun HomeDashboard(
     onNavigate: (String) -> Unit,
     onPlayMovie: (CatalogTitle) -> Unit,
     onResumeMovie: (CatalogTitle, Long) -> Unit,
+    onResumeEpisode: (String, String, String, Long) -> Unit,
     onPlayChannel: (TvChannel) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1359,6 +1378,34 @@ private fun HomeDashboard(
             items(continueMovies, key = { "home-continue-${it.first.id}" }) { (item, position) ->
                 HomeMediaCard(item.title, item.posterUrl, item.year,
                     "RESUME", onClick = { onResumeMovie(item, position) })
+            }
+        }
+        Spacer(Modifier.height(15.dp))
+    }
+    val continueEpisodes = buildList {
+        for (index in 0 until watchHistory.length()) {
+            val entry = watchHistory.optJSONObject(index) ?: continue
+            val kind = entry.optString("kind")
+            if (!kind.startsWith("episode:")) continue
+            val seriesId = kind.removePrefix("episode:")
+            val seriesItem = series.firstOrNull { it.id == seriesId } ?: continue
+            val episodeId = entry.optString("content_id")
+            val episodeTitle = entry.optString("title")
+            val position = entry.optLong("position_ms")
+            if (episodeId.isBlank() || episodeTitle.isBlank() || position <= 0L) continue
+            add(Triple(seriesItem, entry, position))
+        }
+    }.distinctBy { it.second.optString("content_id") }
+    if (continueEpisodes.isNotEmpty()) {
+        SectionHeading("CONTINUE SERIES")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(continueEpisodes, key = { "home-episode-${it.second.optString("content_id")}" }) { (seriesItem, entry, position) ->
+                val episodeTitle = entry.optString("title").substringAfter(" - ", entry.optString("title"))
+                HomeMediaCard(seriesItem.title, seriesItem.posterUrl, episodeTitle,
+                    "RESUME EPISODE", onClick = {
+                        onResumeEpisode(seriesItem.id, entry.optString("content_id"),
+                            entry.optString("title"), position)
+                    })
             }
         }
         Spacer(Modifier.height(15.dp))
