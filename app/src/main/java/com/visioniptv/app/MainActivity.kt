@@ -117,6 +117,9 @@ private fun VisionHome(
     var movies by remember { mutableStateOf<List<CatalogTitle>>(emptyList()) }
     var series by remember { mutableStateOf<List<CatalogTitle>>(emptyList()) }
     var selectedMedia by remember { mutableStateOf<CatalogTitle?>(null) }
+    var selectedSeriesDetails by remember { mutableStateOf<SeriesDetails?>(null) }
+    var seriesEpisodesLoading by remember { mutableStateOf(false) }
+    var seriesEpisodesError by remember { mutableStateOf("") }
     var mediaStatus by remember { mutableStateOf("Connect an Xtream account to load your Movies and Series library.") }
     var epgProgrammes by remember { mutableStateOf<List<Programme>>(emptyList()) }
     var epgStatus by remember { mutableStateOf("EPG not loaded") }
@@ -284,13 +287,37 @@ private fun VisionHome(
                             }
                         }, onPlay = { play(it.streamUrl) }, onBack = { selectedMedia = null })
                     "Series" -> CatalogScreen("Series", series, selectedMedia, mediaStatus,
+                        seriesDetails = selectedSeriesDetails,
+                        episodesLoading = seriesEpisodesLoading,
+                        episodesError = seriesEpisodesError,
                         onSelect = { item ->
                             selectedMedia = item
+                            selectedSeriesDetails = null
+                            seriesEpisodesError = ""
+                            seriesEpisodesLoading = true
+                            scope.launch {
+                                try {
+                                    val account = PlaylistAccount(
+                                        name = "My playlist",
+                                        serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
+                                        username = accountUsername,
+                                        password = accountPassword
+                                    )
+                                    val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, item.id)
+                                    selectedSeriesDetails = details
+                                    if (details.episodes.isEmpty()) seriesEpisodesError = "Your provider returned no episodes for this series."
+                                } catch (e: Exception) {
+                                    seriesEpisodesError = "Could not load episodes: ${e.message ?: "provider error"}"
+                                } finally {
+                                    seriesEpisodesLoading = false
+                                }
+                            }
                             if (tmdbToken.isNotBlank() && item.tmdbId == null) scope.launch {
                                 try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
                                 catch (_: Exception) { selectedMedia = item }
                             }
-                        }, onPlay = { }, onBack = { selectedMedia = null })
+                        }, onPlay = { }, onEpisodePlay = { play(it.streamUrl) },
+                        onBack = { selectedMedia = null; selectedSeriesDetails = null; seriesEpisodesError = "" })
                     "Live TV" -> {
                         Text("LIVE TV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                         Text("${channels.size} channels  •  Live entertainment", color = Muted, fontSize = 12.sp)
@@ -689,6 +716,10 @@ private fun CatalogScreen(
     status: String,
     onSelect: (CatalogTitle) -> Unit,
     onPlay: (CatalogTitle) -> Unit,
+    onEpisodePlay: (SeriesEpisode) -> Unit = {},
+    seriesDetails: SeriesDetails? = null,
+    episodesLoading: Boolean = false,
+    episodesError: String = "",
     onBack: () -> Unit
 ) {
     if (selected != null) {
@@ -707,8 +738,37 @@ private fun CatalogScreen(
                 Spacer(Modifier.height(10.dp))
                 Text(selected.overview.ifBlank { "No synopsis is available from your provider or metadata source." }, color = Color.White, fontSize = 14.sp)
                 Spacer(Modifier.height(14.dp))
-                if (selected.kind == "movie" && selected.streamUrl.isNotBlank()) Button(onClick = { onPlay(selected) }) { Text("Play movie") }
-                else Text("Series details loaded. Episode playback will be added with the series episode browser.", color = Muted, fontSize = 12.sp)
+                if (selected.kind == "movie" && selected.streamUrl.isNotBlank()) {
+                    Button(onClick = { onPlay(selected) }) { Text("Play movie") }
+                } else if (selected.kind == "tv") {
+                    Spacer(Modifier.height(10.dp))
+                    Text("SEASONS & EPISODES", color = Accent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    when {
+                        episodesLoading -> Text("Loading episodes from your provider…", color = Muted, fontSize = 12.sp)
+                        episodesError.isNotBlank() -> Text(episodesError, color = Muted, fontSize = 12.sp)
+                        seriesDetails == null -> Text("Episode information is not available yet.", color = Muted, fontSize = 12.sp)
+                        seriesDetails.episodes.isEmpty() -> Text("No playable episodes were returned.", color = Muted, fontSize = 12.sp)
+                        else -> {
+                            val seasons = seriesDetails.episodes.groupBy { it.seasonNumber }.toSortedMap()
+                            seasons.forEach { (season, seasonEpisodes) ->
+                                Text(if (season > 0) "Season $season" else "Specials", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                seasonEpisodes.forEach { episode ->
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).background(SurfaceDark, RoundedCornerShape(8.dp)).padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        AsyncImage(model = episode.stillUrl.ifBlank { selected.posterUrl }, contentDescription = null,
+                                            modifier = Modifier.width(74.dp).height(48.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text("Episode ${episode.episodeNumber}: ${episode.title}", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                            if (episode.duration.isNotBlank()) Text(episode.duration, color = Muted, fontSize = 10.sp)
+                                            if (episode.plot.isNotBlank()) Text(episode.plot, color = Muted, fontSize = 10.sp, maxLines = 2)
+                                        }
+                                        Button(onClick = { onEpisodePlay(episode) }) { Text("Play") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 if (selected.tmdbId == null) Text("No confident TMDb match found. Provider information is shown instead.", color = Muted, fontSize = 11.sp)
             }
         }
