@@ -1141,7 +1141,6 @@ private fun CatalogScreen(
                             }
                         }
                     }
-                }
                 if (selected.tmdbId == null) Text("No confident TMDb match found. Provider information is shown instead.", color = Muted, fontSize = 11.sp)
             }
         }
