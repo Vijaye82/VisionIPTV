@@ -126,10 +126,75 @@ private fun VisionHome(
     val firstFocus = remember { FocusRequester() }
     val nav = listOf("Home", "Movies", "Series", "Live TV", "TV Guide", "Catch-up", "My List", "Settings")
 
+    suspend fun reconnectSavedConnection() {
+        if (!hasSavedConnection || !prefs.getBoolean("setting_auto_connect", true)) return
+        status = "Restoring your saved connection…"
+        try {
+            val account = PlaylistAccount(
+                name = "My playlist",
+                serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
+                username = accountUsername,
+                password = accountPassword,
+                m3uUrl = playlistUrl,
+                backupM3uUrls = listOf(backupM3u1, backupM3u2),
+                epgUrls = listOf(primaryEpgUrl, backupEpgUrl).filter { it.isNotBlank() }
+            )
+            val result = if (connectionType == "M3U") {
+                loadPlaylist(account)
+            } else {
+                IptvRepository().loadXtreamLiveWithFailover(account)
+            }
+            channels = result.first
+            activeServerLabel = result.second
+            movies = emptyList()
+            series = emptyList()
+            selectedMedia = null
+
+            if (connectionType == "Xtream") {
+                mediaStatus = "Loading your Movies and Series…"
+                try {
+                    val catalog = MediaCatalogRepository()
+                    movies = catalog.loadMovies(account, activeServerLabel)
+                    series = catalog.loadSeries(account, activeServerLabel)
+                    mediaStatus = "${movies.size} movies • ${series.size} series loaded"
+                } catch (catalogError: Exception) {
+                    mediaStatus = "Live TV connected; catalogue unavailable: ${catalogError.message ?: "provider error"}"
+                }
+            } else {
+                mediaStatus = "M3U connection restored. Movies and Series require an Xtream-compatible catalogue."
+            }
+
+            val providerEpgUrl = if (connectionType == "Xtream" && activeServerLabel.isNotBlank()) {
+                val u = java.net.URLEncoder.encode(accountUsername, "UTF-8")
+                val p = java.net.URLEncoder.encode(accountPassword, "UTF-8")
+                "${activeServerLabel.trimEnd('/')}/xmltv.php?username=$u&password=$p"
+            } else ""
+            val epgUrls = listOf(providerEpgUrl, primaryEpgUrl, backupEpgUrl).filter { it.isNotBlank() }
+            if (epgUrls.isNotEmpty()) {
+                epgStatus = "Refreshing programme guide…"
+                try {
+                    val epgResult = IptvRepository().loadEpgFallback(
+                        epgUrls, channels, java.io.File(context.filesDir, "epg-cache")
+                    )
+                    channels = epgResult.first
+                    epgProgrammes = epgResult.second
+                    epgStatus = "Loaded ${epgProgrammes.size} programme entries"
+                } catch (_: Exception) {
+                    epgStatus = "Guide unavailable; live channels remain connected"
+                }
+            }
+            status = "Reconnected • ${channels.size} live channels"
+        } catch (e: Exception) {
+            status = "Reconnect failed: ${e.message ?: "check your connection settings"}"
+            mediaStatus = "Reconnect required. Open Settings and try Connect again."
+        }
+    }
+
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1200)
         showSplash = false
         try { firstFocus.requestFocus() } catch (_: Exception) { }
+        reconnectSavedConnection()
     }
 
     MaterialTheme(colorScheme = darkColorScheme(
@@ -346,6 +411,8 @@ private fun VisionHome(
                                         .putString("backup_server4", backupServer4)
                                         .putString("account_username", accountUsername)
                                         .putString("account_password", accountPassword)
+                                        .putString("primary_epg_url", primaryEpgUrl)
+                                        .putString("backup_epg_url", backupEpgUrl)
                                         .putBoolean("connection_configured", true)
                                         .apply()
                                     selected = "Home"
@@ -478,7 +545,14 @@ private fun VisionHome(
                         Text("Saved movies & series", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         PosterShelf(listOf("Your saved titles", "Recently watched", "Recommended"))
                     }
-                    else -> HomeDashboard(onNavigate = { selected = it })
+                    else -> Column {
+                        HomeDashboard(onNavigate = { selected = it })
+                        Spacer(Modifier.height(8.dp))
+                        Text(status, color = Muted, fontSize = 11.sp)
+                        if (activeServerLabel.isNotBlank()) {
+                            Text("Connected source: $activeServerLabel", color = Accent, fontSize = 10.sp, maxLines = 1)
+                        }
+                    }
                 }
             }
         }
