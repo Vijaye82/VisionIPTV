@@ -471,7 +471,7 @@ private fun VisionHome(
                             } else template
                             if (archiveUrl.isNotBlank()) playContent(
                                 archiveUrl, channel.name + " • " + programme.title,
-                                channel.id + "|" + programme.startMillis, "catchup", 0L
+                                channel.id + "|" + programme.startMillis, "catchup", 0L, ""
                             )
                         }
                     )
@@ -682,7 +682,7 @@ private fun VisionHome(
                             } else template
                             if (archiveUrl.isNotBlank()) playContent(
                                 archiveUrl, channel.name + " • " + programme.title,
-                                channel.id + "|" + programme.startMillis, "catchup", 0L
+                                channel.id + "|" + programme.startMillis, "catchup", 0L, ""
                             )
                         }
                     )
