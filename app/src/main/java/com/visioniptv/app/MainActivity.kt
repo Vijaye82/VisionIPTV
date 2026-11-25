@@ -31,10 +31,10 @@ import androidx.compose.ui.unit.sp
 import com.visioniptv.app.data.*
 import kotlinx.coroutines.launch
 
-private val Ink = Color(0xFF070B12)
-private val SurfaceDark = Color(0xFF111A24)
-private val Accent = Color(0xFF35D5C4)
-private val Muted = Color(0xFF9AA8B7)
+private val Ink = Color(0xFF050A12)
+private val SurfaceDark = Color(0xFF101B29)
+private val Accent = Color(0xFF12A8FF)
+private val Muted = Color(0xFF9AAFC3)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -136,12 +136,12 @@ private fun VisionHome(
         } else Row(Modifier.fillMaxSize().background(Ink)) {
             Column(
                 Modifier.width(190.dp).fillMaxHeight()
-                    .background(Color(0xFF0A111A))
+                    .background(Color(0xFF071321))
                     .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
                 Text("VISION", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 Text("IPTV", color = Accent, fontSize = 12.sp, letterSpacing = 5.sp)
-                Text("VERSION 2.1.4", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                Text("VISION IPTV", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.height(12.dp))
                 nav.forEachIndexed { index, item ->
                     var focused by remember { mutableStateOf(false) }
@@ -154,14 +154,14 @@ private fun VisionHome(
                             .background(
                                 color = when {
                                     focused -> Color(0xFF35D5C4)
-                                    isSelected -> Color(0xFF263D50)
+                                    isSelected -> Color(0xFF073B68)
                                     else -> Color.Transparent
                                 },
                                 shape = RoundedCornerShape(13.dp)
                             )
                             .then(
                                 if (focused) Modifier.border(2.dp, Color(0xFF8CF3E8), RoundedCornerShape(13.dp))
-                                else if (isSelected) Modifier.border(1.dp, Color(0xFF4B7188), RoundedCornerShape(13.dp))
+                                else if (isSelected) Modifier.border(1.dp, Color(0xFF168FE0), RoundedCornerShape(13.dp))
                                 else Modifier
                             )
                             .clickable { selected = item; activeCategory = "All" }
@@ -454,23 +454,54 @@ private fun VisionSplash() {
 
 @Composable
 private fun HomeDashboard(onNavigate: (String) -> Unit) {
-    Text("HOME", color = Accent, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
-    Spacer(Modifier.height(7.dp))
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("WELCOME TO VISION", color = Accent, fontSize = 11.sp,
+                letterSpacing = 2.4.sp, fontWeight = FontWeight.Bold)
+            Text("Your entertainment, your way", color = Color.White,
+                fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        }
+        Surface(
+            color = Color(0xFF102B25),
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1F765F))
+        ) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).background(Color(0xFF38D889), RoundedCornerShape(50)))
+                Spacer(Modifier.width(7.dp))
+                Text("READY TO WATCH", color = Color(0xFFB8F4D5),
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
     HeroBanner(onClick = { onNavigate("Movies") })
-    Spacer(Modifier.height(13.dp))
+    Spacer(Modifier.height(17.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SectionHeading("FEATURED FOR YOU")
+        Spacer(Modifier.weight(1f))
+        Text("MOVIES & SERIES", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+    PosterShelf(listOf("Featured movie", "Popular series", "New release", "Recommended", "Family favourite"))
+    Spacer(Modifier.height(15.dp))
     SectionHeading("CONTINUE WATCHING")
-    PosterShelf(listOf("The Last of Us", "House of the Dragon", "Breaking Bad", "Recently Watched"))
-    Spacer(Modifier.height(12.dp))
-    SectionHeading("NEW & TRENDING")
-    PosterShelf(listOf("Featured movie", "Popular series", "New release", "Recommended"))
-    Spacer(Modifier.height(12.dp))
-    SectionHeading("EXPLORE VISION")
+    PosterShelf(listOf("Recently watched", "Continue watching", "Next episode", "Your list"))
+    Spacer(Modifier.height(15.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        SectionHeading("EXPLORE VISION")
+        Spacer(Modifier.weight(1f))
+        Text("CHOOSE A CATEGORY", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(listOf("Movies", "TV Shows", "Live TV", "TV Guide")) { name ->
+        items(listOf("Live TV", "Movies", "TV Shows", "TV Guide", "Catch-up")) { name ->
             FocusTile(name) { onNavigate(if (name == "TV Shows") "Series" else name) }
         }
     }
 }
+
 
 @Composable
 private fun CinemaBrowse(title: String, showCategories: Boolean) {
