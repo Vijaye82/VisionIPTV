@@ -275,7 +275,7 @@ private fun VisionHome(
                         Spacer(Modifier.height(8.dp))
                         Text("LOGIN DETAILS", color = Accent, fontWeight = FontWeight.Bold)
                         OutlinedTextField(accountUsername, { accountUsername = it }, label = { Text("Username") }, placeholder = { Text("Enter your IPTV username") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
-                        OutlinedTextField(accountPassword, { accountPassword = it }, label = { Text("Password") },
+                        OutlinedTextField(accountPassword, { accountPassword = it }, label = { Text("Password") }, placeholder = { Text("Enter your IPTV password") },
                             modifier = Modifier.fillMaxWidth(),
                             visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done))
                         Spacer(Modifier.height(10.dp))
