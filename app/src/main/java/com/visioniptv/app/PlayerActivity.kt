@@ -155,16 +155,47 @@ class PlayerActivity : ComponentActivity() {
     private fun saveWatchProgress() {
         val exo = player ?: return
         if (contentId.isBlank() || contentTitle.isBlank()) return
+        val prefs = getSharedPreferences("vision_watch_progress", MODE_PRIVATE)
         val position = exo.currentPosition.coerceAtLeast(0L)
         val duration = exo.duration.takeIf { it > 0L } ?: 0L
+        val key = "$contentKind|$contentId"
+        val history = try {
+            org.json.JSONArray(prefs.getString("watch_history", "[]") ?: "[]")
+        } catch (_: Exception) { org.json.JSONArray() }
+
+        val updated = org.json.JSONArray()
+        for (index in 0 until history.length()) {
+            val entry = history.optJSONObject(index) ?: continue
+            if (entry.optString("key") != key) updated.put(entry)
+        }
+
         if (duration > 0L && position >= duration - 15_000L) {
-            getSharedPreferences("vision_watch_progress", MODE_PRIVATE).edit()
+            prefs.edit()
+                .putString("watch_history", updated.toString())
                 .remove("last_content_id").remove("last_content_title").remove("last_content_kind")
                 .remove("last_position_ms").remove("last_duration_ms").apply()
             return
         }
         if (position < 5_000L) return
-        getSharedPreferences("vision_watch_progress", MODE_PRIVATE).edit()
+
+        val entry = org.json.JSONObject()
+            .put("key", key)
+            .put("content_id", contentId)
+            .put("title", contentTitle)
+            .put("kind", contentKind)
+            .put("position_ms", position)
+            .put("duration_ms", duration)
+            .put("updated_ms", System.currentTimeMillis())
+        updated.put(entry)
+
+        // Keep the most recently updated 20 titles, newest first.
+        val sorted = (0 until updated.length()).mapNotNull { updated.optJSONObject(it) }
+            .sortedByDescending { it.optLong("updated_ms") }
+        val capped = org.json.JSONArray()
+        sorted.take(MAX_WATCH_HISTORY_ITEMS).forEach { capped.put(it) }
+
+        prefs.edit()
+            .putString("watch_history", capped.toString())
             .putString("last_content_id", contentId)
             .putString("last_content_title", contentTitle)
             .putString("last_content_kind", contentKind)
@@ -188,5 +219,6 @@ class PlayerActivity : ComponentActivity() {
         const val MAX_RETRIES_PER_SERVER = 2
         const val RETRY_DELAY_MS = 1800L
         const val SWITCH_DELAY_MS = 700L
+        const val MAX_WATCH_HISTORY_ITEMS = 20
     }
 }
