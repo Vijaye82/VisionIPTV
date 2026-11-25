@@ -138,6 +138,7 @@ private fun VisionHome(
     var selectedSeriesDetails by remember { mutableStateOf<SeriesDetails?>(null) }
     var seriesEpisodesLoading by remember { mutableStateOf(false) }
     var seriesEpisodesError by remember { mutableStateOf("") }
+    var watchHistoryRefresh by remember { mutableIntStateOf(0) }
     var mediaStatus by remember { mutableStateOf("Connect an Xtream account to load your Movies and Series library.") }
     var epgProgrammes by remember { mutableStateOf<List<Programme>>(emptyList()) }
     var epgStatus by remember { mutableStateOf("EPG not loaded") }
@@ -593,44 +594,72 @@ private fun VisionHome(
                             }
                         }
                         val watchPrefs = context.getSharedPreferences("vision_watch_progress", android.content.Context.MODE_PRIVATE)
-                        val watchedId = watchPrefs.getString("last_content_id", "").orEmpty()
-                        val watchedTitle = watchPrefs.getString("last_content_title", "").orEmpty()
-                        val watchedKind = watchPrefs.getString("last_content_kind", "").orEmpty()
-                        val watchedPosition = watchPrefs.getLong("last_position_ms", 0L)
-                        val watchedDuration = watchPrefs.getLong("last_duration_ms", 0L)
-                        if (watchedId.isNotBlank() && watchedTitle.isNotBlank() && watchedPosition > 0L) {
+                        val watchHistory = try {
+                            org.json.JSONArray(watchPrefs.getString("watch_history", "[]") ?: "[]")
+                        } catch (_: Exception) { org.json.JSONArray() }
+                        if (watchHistory.length() > 0) {
                             Spacer(Modifier.height(14.dp))
                             Text("CONTINUE WATCHING", color = Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text(watchedTitle, color = Color.White, fontWeight = FontWeight.SemiBold)
-                            val percent = if (watchedDuration > 0L) (watchedPosition * 100L / watchedDuration).coerceIn(0L, 100L) else 0L
-                            Text(if (watchedDuration > 0L) "$percent% watched • ${watchedPosition / 60000L} min watched" else "${watchedPosition / 60000L} min watched",
-                                color = Muted, fontSize = 11.sp)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = {
-                                    if (watchedKind == "movie") {
-                                        val item = movies.firstOrNull { it.id == watchedId }
-                                        if (item != null) playContent(item.streamUrl, item.title, item.id, "movie", watchedPosition)
-                                    } else if (watchedKind.startsWith("episode:")) {
-                                        val seriesId = watchedKind.removePrefix("episode:")
-                                        scope.launch {
-                                            try {
-                                                val account = PlaylistAccount(
-                                                    name = "My playlist",
-                                                    serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
-                                                    username = accountUsername, password = accountPassword
-                                                )
-                                                val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, seriesId)
-                                                val episode = details.episodes.firstOrNull { it.id == watchedId }
-                                                if (episode != null) playContent(episode.streamUrl, watchedTitle, episode.id, watchedKind, watchedPosition)
-                                                else mediaStatus = "The saved episode is no longer available from this provider."
-                                            } catch (e: Exception) {
-                                                mediaStatus = "Could not resume episode: ${e.message ?: "provider error"}"
-                                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                for (index in 0 until watchHistory.length()) {
+                                    val entry = watchHistory.optJSONObject(index) ?: continue
+                                    val watchedId = entry.optString("content_id")
+                                    val watchedTitle = entry.optString("title")
+                                    val watchedKind = entry.optString("kind")
+                                    val watchedPosition = entry.optLong("position_ms")
+                                    val watchedDuration = entry.optLong("duration_ms")
+                                    if (watchedId.isBlank() || watchedTitle.isBlank() || watchedPosition <= 0L) continue
+                                    val percent = if (watchedDuration > 0L) (watchedPosition * 100L / watchedDuration).coerceIn(0L, 100L) else 0L
+                                    Row(Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(9.dp)).padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(watchedTitle, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                            Text(if (watchedDuration > 0L) "$percent% watched • ${watchedPosition / 60000L} min" else "${watchedPosition / 60000L} min watched",
+                                                color = Muted, fontSize = 11.sp)
                                         }
+                                        Button(onClick = {
+                                            if (watchedKind == "movie") {
+                                                val item = movies.firstOrNull { it.id == watchedId }
+                                                if (item != null) playContent(item.streamUrl, item.title, item.id, "movie", watchedPosition)
+                                                else mediaStatus = "This movie is not in the currently loaded provider catalogue."
+                                            } else if (watchedKind.startsWith("episode:")) {
+                                                val seriesId = watchedKind.removePrefix("episode:")
+                                                scope.launch {
+                                                    try {
+                                                        val account = PlaylistAccount(
+                                                            name = "My playlist",
+                                                            serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
+                                                            username = accountUsername, password = accountPassword
+                                                        )
+                                                        val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, seriesId)
+                                                        val episode = details.episodes.firstOrNull { it.id == watchedId }
+                                                        if (episode != null) playContent(episode.streamUrl, watchedTitle, episode.id, watchedKind, watchedPosition)
+                                                        else mediaStatus = "The saved episode is no longer available from this provider."
+                                                    } catch (e: Exception) {
+                                                        mediaStatus = "Could not resume episode: ${e.message ?: "provider error"}"
+                                                    }
+                                                }
+                                            }
+                                        }) { Text("Resume") }
+                                        TextButton(onClick = {
+                                            val remaining = org.json.JSONArray()
+                                            for (i in 0 until watchHistory.length()) {
+                                                val saved = watchHistory.optJSONObject(i) ?: continue
+                                                if (saved.optString("key") != entry.optString("key")) remaining.put(saved)
+                                            }
+                                            watchPrefs.edit().putString("watch_history", remaining.toString()).apply()
+                                            watchHistoryRefresh++
+                                        }) { Text("Remove") }
                                     }
-                                }) { Text("Resume") }
-                                TextButton(onClick = { watchPrefs.edit().clear().apply() }) { Text("Clear") }
+                                }
                             }
+                            TextButton(onClick = {
+                                watchPrefs.edit().remove("watch_history").apply()
+                                watchHistoryRefresh++
+                            }) { Text("Clear watch history") }
+                        } else {
+                            EmptyPanel("Nothing to continue yet", "Movies and episodes you start watching will appear here.")
                         }
                         Spacer(Modifier.height(14.dp))
                         Text("Favourite channels", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
