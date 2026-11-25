@@ -23,7 +23,8 @@ data class PlaylistAccount(
 
 data class TvChannel(
     val id: String, val name: String, val streamUrl: String, val logo: String = "",
-    val group: String = "All channels", val number: Int = 0, val tvgId: String = ""
+    val group: String = "All channels", val number: Int = 0, val tvgId: String = "",
+    val archiveTemplate: String = "", val archiveDays: Int = 0
 )
 data class MediaItem(
     val id: String, val title: String, val streamUrl: String, val poster: String = "",
