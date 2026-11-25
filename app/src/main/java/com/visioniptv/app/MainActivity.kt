@@ -120,19 +120,19 @@ private fun VisionHome(
         } else Row(Modifier.fillMaxSize().background(Ink)) {
             Column(
                 Modifier.width(190.dp).fillMaxHeight()
-                    .background(Color(0xFF0A111A)).verticalScroll(rememberScrollState())
-                    .padding(horizontal = 14.dp, vertical = 18.dp)
+                    .background(Color(0xFF0A111A))
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
                 Text("VISION", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 Text("IPTV", color = Accent, fontSize = 12.sp, letterSpacing = 5.sp)
-                Text("VERSION 2.1.3", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                Spacer(Modifier.height(22.dp))
+                Text("VERSION 2.1.4", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                Spacer(Modifier.height(12.dp))
                 nav.forEachIndexed { index, item ->
                     var focused by remember { mutableStateOf(false) }
                     val isSelected = selected == item
                     Row(
                         Modifier.fillMaxWidth()
-                            .padding(vertical = 4.dp)
+                            .padding(vertical = 2.dp)
                             .then(if (index == if (!hasSavedConnection) nav.lastIndex else 0) Modifier.focusRequester(firstFocus) else Modifier)
                             .onFocusChanged { focused = it.isFocused }
                             .background(
@@ -150,7 +150,7 @@ private fun VisionHome(
                             )
                             .clickable { selected = item; activeCategory = "All" }
                             .focusable()
-                            .padding(horizontal = 13.dp, vertical = 13.dp),
+                            .padding(horizontal = 13.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(Modifier.width(4.dp).height(22.dp)
@@ -366,7 +366,7 @@ private fun VisionHome(
                             prefs.edit().putBoolean("show_series_country_subcategories", it).apply()
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("VISION IPTV BUILD 2.1.3 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("VISION IPTV BUILD 2.1.4 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     "TV Guide" -> GuideScreen(channels, epgProgrammes)
                     "Catch-up" -> CatchupScreen()
