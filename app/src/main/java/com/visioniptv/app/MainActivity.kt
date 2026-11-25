@@ -246,7 +246,12 @@ private fun VisionHome(
                     "Settings" -> {
                         Text("SETTINGS", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                         Text("Connections & options", color = Muted, fontSize = 13.sp)
-                        Text("Choose M3U or Xtream Codes and configure backup addresses.", color = Muted)
+                        Text("Choose a category below. Settings are saved on this device.", color = Muted)
+                        Spacer(Modifier.height(10.dp))
+                        SettingsHub(prefs = prefs)
+                        Spacer(Modifier.height(16.dp))
+                        Text("TV SERVICE CONNECTION", color = Accent, fontWeight = FontWeight.Bold)
+                        Text("Configure your playlist, account credentials and compatible backup servers.", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(selected = connectionType == "M3U", onClick = { connectionType = "M3U" }, label = { Text("M3U") })
@@ -434,6 +439,95 @@ private fun VisionHome(
     }
 }
 
+
+@Composable
+private fun PersistentSettingToggle(prefs: android.content.SharedPreferences, key: String, label: String, defaultValue: Boolean = false, description: String? = null) {
+    var checked by remember(key) { mutableStateOf(prefs.getBoolean(key, defaultValue)) }
+    Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        SettingToggle(label, checked) {
+            checked = it
+            prefs.edit().putBoolean(key, it).apply()
+        }
+        if (description != null) Text(description, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(start = 5.dp, bottom = 4.dp))
+    }
+}
+
+@Composable
+private fun SettingsHub(prefs: android.content.SharedPreferences) {
+    val categories = listOf("General", "Appearance", "Playback", "Subtitles", "TV Guide", "TV Services", "Channels & Library", "Recordings", "Parental Controls", "Account", "Help & About")
+    var selectedCategory by remember { mutableStateOf("General") }
+    Text("SETTINGS CATEGORIES", color = Accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        items(categories) { category ->
+            FilterChip(selected = selectedCategory == category, onClick = { selectedCategory = category }, label = { Text(category) })
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFF263B52), RoundedCornerShape(12.dp)).padding(14.dp)) {
+        Text(selectedCategory.uppercase(), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        when (selectedCategory) {
+            "General" -> {
+                PersistentSettingToggle(prefs, "setting_auto_connect", "Reconnect to saved playlist on startup", true, "Uses the saved connection when automatic restoration is available.")
+                PersistentSettingToggle(prefs, "setting_resume_last", "Return to Home on startup", true)
+                PersistentSettingToggle(prefs, "setting_confirm_exit", "Confirm before exiting")
+                PersistentSettingToggle(prefs, "setting_show_clock", "Show clock in the app", true)
+                PersistentSettingToggle(prefs, "setting_keep_screen_on", "Keep screen awake during playback", true)
+            }
+            "Appearance" -> {
+                PersistentSettingToggle(prefs, "setting_compact_rows", "Use compact channel rows")
+                PersistentSettingToggle(prefs, "setting_show_logos", "Show channel logos when available", true)
+                PersistentSettingToggle(prefs, "setting_animations", "Enable interface animations", true)
+                PersistentSettingToggle(prefs, "setting_large_text", "Use larger interface text")
+                Text("Vision uses its dark navy and electric-blue theme in this build. More theme choices will follow.", color = Muted, fontSize = 11.sp)
+            }
+            "Playback" -> {
+                PersistentSettingToggle(prefs, "setting_auto_retry", "Retry a stream when playback fails", true)
+                PersistentSettingToggle(prefs, "setting_remember_player", "Remember last playback choice", true)
+                PersistentSettingToggle(prefs, "setting_audio_passthrough", "Allow audio passthrough when supported")
+                Text("Decoder and buffer selection are not exposed by the current player build yet.", color = Muted, fontSize = 11.sp)
+            }
+            "Subtitles" -> {
+                PersistentSettingToggle(prefs, "setting_subtitles_enabled", "Enable subtitles when available", true)
+                PersistentSettingToggle(prefs, "setting_subtitles_cc", "Prefer closed captions")
+                Text("Subtitle language, size, delay and online search need player-track and subtitle-provider integration.", color = Muted, fontSize = 11.sp)
+            }
+            "TV Guide" -> {
+                PersistentSettingToggle(prefs, "setting_epg_auto_refresh", "Refresh EPG when connecting", true)
+                PersistentSettingToggle(prefs, "setting_epg_show_empty", "Show channels without programme data", true)
+                PersistentSettingToggle(prefs, "setting_epg_local_time", "Display programme times in device timezone", true)
+                Text("XMLTV primary/backup URLs and EPG testing are available in the TV Service section below.", color = Muted, fontSize = 11.sp)
+            }
+            "TV Services" -> {
+                PersistentSettingToggle(prefs, "setting_service_failover", "Try configured backup servers", true)
+                PersistentSettingToggle(prefs, "setting_service_save", "Save connection details securely", true)
+                Text("M3U and Xtream credentials, primary/backup URLs, and XMLTV sources are configured below.", color = Muted, fontSize = 11.sp)
+            }
+            "Channels & Library" -> {
+                PersistentSettingToggle(prefs, "setting_hide_empty_groups", "Hide empty channel groups", true)
+                PersistentSettingToggle(prefs, "setting_sort_channels", "Sort channels by name")
+                PersistentSettingToggle(prefs, "setting_show_country_groups", "Show country/category subgroups", true)
+                PersistentSettingToggle(prefs, "setting_keep_favourites", "Keep favourites on this device", true)
+            }
+            "Recordings" -> {
+                PersistentSettingToggle(prefs, "setting_recording_notifications", "Notify when recording support is available")
+                Text("Recording is not implemented yet. It requires a compatible provider API or recording destination; these switches do not start recordings.", color = Muted, fontSize = 11.sp)
+            }
+            "Parental Controls" -> {
+                PersistentSettingToggle(prefs, "setting_parental_enabled", "Enable parental controls")
+                Text("PIN enforcement and content locking are not yet implemented; this preference alone does not protect content. PIN setup and restrictions are planned for the security stage.", color = Muted, fontSize = 11.sp)
+            }
+            "Account" -> {
+                PersistentSettingToggle(prefs, "setting_account_local_backup", "Include preferences in local backup", true)
+                Text("Credentials remain encrypted in app storage. Cloud sync and account sign-in require a backend and are not available in this build.", color = Muted, fontSize = 11.sp)
+            }
+            "Help & About" -> {
+                Text("Vision IPTV • Settings foundation", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("Crash reports can be shared using Diagnostics further down this page. Update checks and full device diagnostics are still to be added.", color = Muted, fontSize = 11.sp)
+            }
+        }
+    }
+}
 
 @Composable
 private fun VisionSplash() {
