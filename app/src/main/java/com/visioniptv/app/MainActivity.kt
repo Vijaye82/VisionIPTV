@@ -1142,18 +1142,20 @@ private fun GuideScreen(channels: List<TvChannel>, programmes: List<Programme>) 
     var selectedProgramme by remember { mutableStateOf<Programme?>(null) }
     var query by remember { mutableStateOf("") }
     val zone = remember { java.util.TimeZone.getDefault() }
-    val calendar = remember(selectedDay) {
+    val dayOffset = if (selectedDay == 7) 0 else selectedDay
+    val rangeDays = if (selectedDay == 7) 7 else 1
+    val calendar = remember(dayOffset) {
         java.util.Calendar.getInstance(zone).apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0)
             set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0)
             set(java.util.Calendar.MILLISECOND, 0)
-            add(java.util.Calendar.DAY_OF_YEAR, selectedDay)
+            add(java.util.Calendar.DAY_OF_YEAR, dayOffset)
         }
     }
     val dayStart = calendar.timeInMillis
-    val dayEnd = dayStart + 24L * 60L * 60L * 1000L
-    val dayLabel = java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.getDefault()).format(java.util.Date(dayStart))
+    val dayEnd = dayStart + rangeDays * 24L * 60L * 60L * 1000L
+    val dayLabel = if (selectedDay == 7) "Next 7 days" else java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.getDefault()).format(java.util.Date(dayStart))
     val timeFormat = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).apply { timeZone = zone } }
     fun programmesFor(channel: TvChannel): List<Programme> {
         val ids = listOf(channel.tvgId, channel.id, channel.name).filter { it.isNotBlank() }
@@ -1173,10 +1175,10 @@ private fun GuideScreen(channels: List<TvChannel>, programmes: List<Programme>) 
     Text("Programme schedules • device local time (${zone.id})", color = Muted, fontSize = 12.sp)
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf("Today", "Tomorrow", "7 Days").forEachIndexed { index, label ->
+        listOf("Today" to 0, "Tomorrow" to 1, "7 Days" to 7).forEach { (label, offset) ->
             FilterChip(
-                selected = selectedDay == index,
-                onClick = { selectedDay = index; selectedProgramme = null },
+                selected = selectedDay == offset,
+                onClick = { selectedDay = offset; selectedProgramme = null },
                 label = { Text(label) }
             )
         }
