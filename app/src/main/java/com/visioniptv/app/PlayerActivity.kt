@@ -27,7 +27,6 @@ class PlayerActivity : ComponentActivity() {
     private var retryCount = 0
     private var retryMessage by mutableStateOf("Connecting to stream…")
     private var playbackError by mutableStateOf(false)
-    private var manuallyRetry by mutableIntStateOf(0)
     private var streamUrl: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +43,6 @@ class PlayerActivity : ComponentActivity() {
                         if (playbackState == Player.STATE_READY) {
                             playbackError = false
                             retryMessage = ""
-                            retryCount = 0
                         }
                     }
 
@@ -98,7 +96,7 @@ class PlayerActivity : ComponentActivity() {
                                 Button(onClick = {
                                     retryCount = 0
                                     playbackError = false
-                                    manuallyRetry++
+                                    handler.removeCallbacksAndMessages(null)
                                     player?.let { exo ->
                                         exo.stop()
                                         exo.setMediaItem(MediaItem.fromUri(streamUrl))
