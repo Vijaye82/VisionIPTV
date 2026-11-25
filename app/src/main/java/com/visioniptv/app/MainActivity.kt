@@ -1137,42 +1137,130 @@ private fun LivePreviewPanel(channel: TvChannel?) {
 
 @Composable
 private fun GuideScreen(channels: List<TvChannel>, programmes: List<Programme>) {
-    val now = System.currentTimeMillis()
-    Text("TV GUIDE (EPG)", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-    Text("Worldwide programme guide • local device time", color = Muted, fontSize = 12.sp)
-    if (programmes.isEmpty()) {
-        Text("No EPG data loaded yet. Add an alternative XMLTV URL in Settings.", color = Muted, fontSize = 11.sp)
+    var selectedDay by remember { mutableIntStateOf(0) }
+    var selectedChannelId by remember { mutableStateOf("") }
+    var selectedProgramme by remember { mutableStateOf<Programme?>(null) }
+    var query by remember { mutableStateOf("") }
+    val zone = remember { java.util.TimeZone.getDefault() }
+    val calendar = remember(selectedDay) {
+        java.util.Calendar.getInstance(zone).apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            add(java.util.Calendar.DAY_OF_YEAR, selectedDay)
+        }
     }
-    Spacer(Modifier.height(12.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        LiveTab("Today", true); LiveTab("Tomorrow", false); LiveTab("7 Days", false)
+    val dayStart = calendar.timeInMillis
+    val dayEnd = dayStart + 24L * 60L * 60L * 1000L
+    val dayLabel = java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.getDefault()).format(java.util.Date(dayStart))
+    val timeFormat = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).apply { timeZone = zone } }
+    fun programmesFor(channel: TvChannel): List<Programme> {
+        val ids = listOf(channel.tvgId, channel.id, channel.name).filter { it.isNotBlank() }
+        return programmes.filter { programme ->
+            ids.any { id -> programme.channelId.equals(id, ignoreCase = true) } &&
+                programme.stopMillis > dayStart && programme.startMillis < dayEnd
+        }.distinctBy { "${it.channelId}|${it.startMillis}|${it.title}" }
+            .sortedBy { it.startMillis }
     }
+    val visibleChannels = channels.filter { channel ->
+        (selectedChannelId.isBlank() || channel.id == selectedChannelId) &&
+            (query.isBlank() || channel.name.contains(query, true) || channel.group.contains(query, true))
+    }
+    val dayProgrammeCount = programmes.count { it.stopMillis > dayStart && it.startMillis < dayEnd }
+    val todayNow = System.currentTimeMillis()
+    Text("TV GUIDE", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+    Text("Programme schedules • device local time (${zone.id})", color = Muted, fontSize = 12.sp)
     Spacer(Modifier.height(10.dp))
-    Row(Modifier.fillMaxWidth().background(Color(0xFF13202B), RoundedCornerShape(7.dp)).padding(8.dp)) {
-        Text("CHANNEL", color = Accent, modifier = Modifier.weight(1.2f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Text("NOW", color = Accent, modifier = Modifier.weight(1.2f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Text("NEXT", color = Accent, modifier = Modifier.weight(1.2f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("Today", "Tomorrow", "7 Days").forEachIndexed { index, label ->
+            FilterChip(
+                selected = selectedDay == index,
+                onClick = { selectedDay = index; selectedProgramme = null },
+                label = { Text(label) }
+            )
+        }
     }
-    if (channels.isEmpty()) {
-        EmptyPanel("Your TV guide will appear here", "Connect a playlist and configure an XMLTV/EPG source in Settings.")
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(dayLabel, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f))
+        Text("$dayProgrammeCount programmes", color = Muted, fontSize = 11.sp)
+    }
+    Spacer(Modifier.height(8.dp))
+    OutlinedTextField(
+        value = query, onValueChange = { query = it },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true, label = { Text("Find a channel") },
+        placeholder = { Text("Search channel name or category") }
+    )
+    Spacer(Modifier.height(8.dp))
+    if (programmes.isEmpty()) {
+        EmptyPanel("No EPG data loaded", "Connect your playlist, then add or test an XMLTV source in Settings. The guide will show schedules supplied by that feed.")
+    } else if (channels.isEmpty()) {
+        EmptyPanel("No channels available", "Load a playlist to match its channels with the programme guide.")
+    } else if (visibleChannels.isEmpty()) {
+        EmptyPanel("No matching channels", "Try another channel name or clear the search.")
     } else {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            channels.take(40).forEach { channel ->
-                val channelProgrammes = programmes.filter {
-                    (it.channelId == channel.tvgId && channel.tvgId.isNotBlank()) ||
-                        it.channelId.equals(channel.name, ignoreCase = true)
-                }.sortedBy { it.startMillis }
-                val current = channelProgrammes.firstOrNull { it.startMillis <= now && it.stopMillis > now }
-                val next = channelProgrammes.firstOrNull { it.startMillis > now }
-                Row(Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(6.dp)).padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(channel.name, color = Color.White, fontSize = 11.sp, modifier = Modifier.weight(1.2f), maxLines = 1)
-                    Text(current?.title ?: "No EPG data", color = if (current == null) Muted else Color.White,
-                        fontSize = 10.sp, modifier = Modifier.weight(1.2f), maxLines = 2)
-                    Text(next?.title ?: "—", color = Muted, fontSize = 10.sp, modifier = Modifier.weight(1.2f), maxLines = 2)
+        Text("Showing ${visibleChannels.size} channels with schedule data where available", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(6.dp))
+        visibleChannels.take(100).forEach { channel ->
+            val schedule = programmesFor(channel)
+            val current = schedule.firstOrNull { it.startMillis <= todayNow && it.stopMillis > todayNow }
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                    .background(SurfaceDark, RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0xFF263B4C), RoundedCornerShape(8.dp))
+                    .padding(9.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (channel.logo.isNotBlank()) {
+                        AsyncImage(model = channel.logo, contentDescription = "${channel.name} logo",
+                            modifier = Modifier.size(34.dp))
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(channel.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(channel.group, color = Muted, fontSize = 10.sp, maxLines = 1)
+                    }
+                    if (current != null) {
+                        Text("ON NOW", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                if (schedule.isEmpty()) {
+                    Text("No programme data for this date", color = Muted, fontSize = 11.sp)
+                } else {
+                    schedule.take(8).forEach { programme ->
+                        val isCurrent = programme.startMillis <= todayNow && programme.stopMillis > todayNow
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                                .then(if (selectedProgramme == programme) Modifier.border(1.dp, Accent, RoundedCornerShape(5.dp)) else Modifier)
+                                .clickable { selectedProgramme = if (selectedProgramme == programme) null else programme }
+                                .focusable().padding(6.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Text(timeFormat.format(java.util.Date(programme.startMillis)),
+                                color = if (isCurrent) Accent else Muted, fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.width(54.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(programme.title, color = if (isCurrent) Accent else Color.White,
+                                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                                Text("${timeFormat.format(java.util.Date(programme.startMillis))} – ${timeFormat.format(java.util.Date(programme.stopMillis))}",
+                                    color = Muted, fontSize = 9.sp)
+                                if (selectedProgramme == programme && programme.description.isNotBlank()) {
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(programme.description, color = Color(0xFFD0DCE6), fontSize = 10.sp)
+                                }
+                            }
+                            if (selectedProgramme == programme) Text("DETAILS", color = Accent, fontSize = 9.sp)
+                        }
+                    }
+                    if (schedule.size > 8) Text("+ ${schedule.size - 8} more programmes in this day", color = Muted, fontSize = 10.sp)
                 }
             }
         }
+        if (visibleChannels.size > 100) Text("Showing first 100 channels. Search to narrow the list.", color = Muted, fontSize = 10.sp)
     }
 }
 @Composable
