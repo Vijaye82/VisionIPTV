@@ -67,12 +67,14 @@ jobs:
           retention-days: 14
 
       - name: Publish APK to GitHub Release
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
+        if: (github.event_name == 'workflow_dispatch' && inputs.publish_release == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-beta]'))
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.name }}
           name: Vision IPTV v${{ steps.version.outputs.name }}
           target_commitish: main
           generate_release_notes: true
+          prerelease: true
+          body: "Vision IPTV Beta 2.3.1. Includes the latest episode queue work. Episode queue behaviour and Google TV / Fire TV device compatibility still need real-provider testing. Please report issues before treating this as a stable release."
           files: app/build/outputs/apk/debug/app-debug.apk
           fail_on_unmatched_files: true
