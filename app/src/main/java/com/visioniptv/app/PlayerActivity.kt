@@ -31,10 +31,25 @@ class PlayerActivity : ComponentActivity() {
     private var retryMessage by mutableStateOf("Connecting to stream…")
     private var playbackError by mutableStateOf(false)
     private var currentUrl = ""
+    private var contentId = ""
+    private var contentTitle = ""
+    private var contentKind = ""
+    private var requestedResumePosition = 0L
+    private val progressHandler = Handler(Looper.getMainLooper())
+    private val progressSaver = object : Runnable {
+        override fun run() {
+            saveWatchProgress()
+            if (!isFinishing && !isDestroyed) progressHandler.postDelayed(this, 10_000L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val originalUrl = intent.getStringExtra("url").orEmpty()
+        contentId = intent.getStringExtra("content_id").orEmpty()
+        contentTitle = intent.getStringExtra("content_title").orEmpty()
+        contentKind = intent.getStringExtra("content_kind").orEmpty()
+        requestedResumePosition = intent.getLongExtra("resume_position_ms", 0L)
         val serverCandidates = intent.getStringArrayListExtra("server_candidates").orEmpty()
         serverUrls = buildServerUrls(originalUrl, serverCandidates)
         if (serverUrls.isEmpty()) {
@@ -47,6 +62,10 @@ class PlayerActivity : ComponentActivity() {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         if (playbackState == Player.STATE_BUFFERING) retryMessage = "Buffering stream…"
                         if (playbackState == Player.STATE_READY) {
+                            if (requestedResumePosition > 0L) {
+                                exo.seekTo(requestedResumePosition)
+                                requestedResumePosition = 0L
+                            }
                             playbackError = false
                             retryMessage = ""
                             retryCount = 0
@@ -74,6 +93,7 @@ class PlayerActivity : ComponentActivity() {
                 exo.prepare()
                 exo.playWhenReady = true
             }
+            progressHandler.postDelayed(progressSaver, 10_000L)
         }
 
         setContent {
@@ -132,8 +152,37 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
-    override fun onStop() { super.onStop(); player?.pause() }
-    override fun onDestroy() { handler.removeCallbacksAndMessages(null); player?.release(); player = null; super.onDestroy() }
+    private fun saveWatchProgress() {
+        val exo = player ?: return
+        if (contentId.isBlank() || contentTitle.isBlank()) return
+        val position = exo.currentPosition.coerceAtLeast(0L)
+        val duration = exo.duration.takeIf { it > 0L } ?: 0L
+        if (duration > 0L && position >= duration - 15_000L) {
+            getSharedPreferences("vision_watch_progress", MODE_PRIVATE).edit()
+                .remove("last_content_id").remove("last_content_title").remove("last_content_kind")
+                .remove("last_position_ms").remove("last_duration_ms").apply()
+            return
+        }
+        if (position < 5_000L) return
+        getSharedPreferences("vision_watch_progress", MODE_PRIVATE).edit()
+            .putString("last_content_id", contentId)
+            .putString("last_content_title", contentTitle)
+            .putString("last_content_kind", contentKind)
+            .putLong("last_position_ms", position)
+            .putLong("last_duration_ms", duration)
+            .putLong("last_updated_ms", System.currentTimeMillis())
+            .apply()
+    }
+
+    override fun onStop() { saveWatchProgress(); super.onStop(); player?.pause() }
+    override fun onDestroy() {
+        saveWatchProgress()
+        progressHandler.removeCallbacksAndMessages(null)
+        handler.removeCallbacksAndMessages(null)
+        player?.release()
+        player = null
+        super.onDestroy()
+    }
 
     private companion object {
         const val MAX_RETRIES_PER_SERVER = 2
