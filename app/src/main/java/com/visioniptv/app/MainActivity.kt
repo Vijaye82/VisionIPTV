@@ -592,6 +592,46 @@ private fun VisionHome(
                                     modifier = Modifier.padding(horizontal = 15.dp, vertical = 8.dp))
                             }
                         }
+                        val watchPrefs = context.getSharedPreferences("vision_watch_progress", android.content.Context.MODE_PRIVATE)
+                        val watchedId = watchPrefs.getString("last_content_id", "").orEmpty()
+                        val watchedTitle = watchPrefs.getString("last_content_title", "").orEmpty()
+                        val watchedKind = watchPrefs.getString("last_content_kind", "").orEmpty()
+                        val watchedPosition = watchPrefs.getLong("last_position_ms", 0L)
+                        val watchedDuration = watchPrefs.getLong("last_duration_ms", 0L)
+                        if (watchedId.isNotBlank() && watchedTitle.isNotBlank() && watchedPosition > 0L) {
+                            Spacer(Modifier.height(14.dp))
+                            Text("CONTINUE WATCHING", color = Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text(watchedTitle, color = Color.White, fontWeight = FontWeight.SemiBold)
+                            val percent = if (watchedDuration > 0L) (watchedPosition * 100L / watchedDuration).coerceIn(0L, 100L) else 0L
+                            Text(if (watchedDuration > 0L) "$percent% watched • ${watchedPosition / 60000L} min watched" else "${watchedPosition / 60000L} min watched",
+                                color = Muted, fontSize = 11.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = {
+                                    if (watchedKind == "movie") {
+                                        val item = movies.firstOrNull { it.id == watchedId }
+                                        if (item != null) playContent(item.streamUrl, item.title, item.id, "movie", watchedPosition)
+                                    } else if (watchedKind.startsWith("episode:")) {
+                                        val seriesId = watchedKind.removePrefix("episode:")
+                                        scope.launch {
+                                            try {
+                                                val account = PlaylistAccount(
+                                                    name = "My playlist",
+                                                    serverSet = ServerSet(primaryServer, backupServer1, backupServer2, backupServer3, backupServer4),
+                                                    username = accountUsername, password = accountPassword
+                                                )
+                                                val details = MediaCatalogRepository().loadSeriesDetails(account, activeServerLabel, seriesId)
+                                                val episode = details.episodes.firstOrNull { it.id == watchedId }
+                                                if (episode != null) playContent(episode.streamUrl, watchedTitle, episode.id, watchedKind, watchedPosition)
+                                                else mediaStatus = "The saved episode is no longer available from this provider."
+                                            } catch (e: Exception) {
+                                                mediaStatus = "Could not resume episode: ${e.message ?: "provider error"}"
+                                            }
+                                        }
+                                    }
+                                }) { Text("Resume") }
+                                TextButton(onClick = { watchPrefs.edit().clear().apply() }) { Text("Clear") }
+                            }
+                        }
                         Spacer(Modifier.height(14.dp))
                         Text("Favourite channels", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         val savedChannels = channels.filter { favouriteChannelIds.contains(it.id) }
