@@ -124,7 +124,7 @@ private fun VisionHome(
             ) {
                 Text("VISION", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 Text("IPTV", color = Accent, fontSize = 12.sp, letterSpacing = 5.sp)
-                Text("VERSION 2.1.1", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                Text("VERSION 2.1.3", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.height(22.dp))
                 nav.forEachIndexed { index, item ->
                     var focused by remember { mutableStateOf(false) }
@@ -238,24 +238,24 @@ private fun VisionHome(
                         Spacer(Modifier.height(8.dp))
                         if (connectionType == "M3U") {
                             Text("M3U PLAYLIST URLS", color = Accent, fontWeight = FontWeight.Bold)
-                            OutlinedTextField(playlistUrl, { playlistUrl = it }, label = { Text("Primary M3U URL") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(backupM3u1, { backupM3u1 = it }, label = { Text("Backup M3U URL 1 (optional)") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(backupM3u2, { backupM3u2 = it }, label = { Text("Backup M3U URL 2 (optional)") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(playlistUrl, { playlistUrl = it }, label = { Text("Primary M3U URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupM3u1, { backupM3u1 = it }, label = { Text("Backup M3U URL 1 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupM3u2, { backupM3u2 = it }, label = { Text("Backup M3U URL 2 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                             Text("For a self-contained M3U link, username and password can be left blank.", color = Muted, fontSize = 12.sp)
                         } else {
                             Text("XTREAM SERVER URLS", color = Accent, fontWeight = FontWeight.Bold)
-                            OutlinedTextField(primaryServer, { primaryServer = it }, label = { Text("Primary server URL") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(backupServer1, { backupServer1 = it }, label = { Text("Backup server URL 1 (optional)") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(backupServer2, { backupServer2 = it }, label = { Text("Backup server URL 2 (optional)") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(backupServer3, { backupServer3 = it }, label = { Text("Backup server URL 3 (optional)") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(backupServer4, { backupServer4 = it }, label = { Text("Backup server URL 4 (optional)") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(primaryServer, { primaryServer = it }, label = { Text("Primary server URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer1, { backupServer1 = it }, label = { Text("Backup server URL 1 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer2, { backupServer2 = it }, label = { Text("Backup server URL 2 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer3, { backupServer3 = it }, label = { Text("Backup server URL 3 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                            OutlinedTextField(backupServer4, { backupServer4 = it }, label = { Text("Backup server URL 4 (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("LOGIN DETAILS", color = Accent, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(accountUsername, { accountUsername = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(accountUsername, { accountUsername = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                         OutlinedTextField(accountPassword, { accountPassword = it }, label = { Text("Password") },
                             modifier = Modifier.fillMaxWidth(),
-                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done))
                         Spacer(Modifier.height(10.dp))
                         Button(onClick = {
                             scope.launch {
@@ -327,8 +327,8 @@ private fun VisionHome(
                         Spacer(Modifier.height(16.dp))
                         Text("EPG SOURCES & CHANNEL LOGOS", color = Accent, fontWeight = FontWeight.Bold)
                         Text("If your provider's guide is empty or incomplete, Vision IPTV can try these XMLTV sources in order and fill missing programmes and channel icons. Successful feeds are compressed and cached on this device for offline fallback.", color = Muted, fontSize = 12.sp)
-                        OutlinedTextField(primaryEpgUrl, { primaryEpgUrl = it }, label = { Text("Alternative XMLTV / EPG URL") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(backupEpgUrl, { backupEpgUrl = it }, label = { Text("Backup XMLTV / EPG URL") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(primaryEpgUrl, { primaryEpgUrl = it }, label = { Text("Alternative XMLTV / EPG URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
+                        OutlinedTextField(backupEpgUrl, { backupEpgUrl = it }, label = { Text("Backup XMLTV / EPG URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next))
                         Button(onClick = {
                             prefs.edit().putString("primary_epg_url", primaryEpgUrl)
                                 .putString("backup_epg_url", backupEpgUrl).apply()
@@ -365,7 +365,7 @@ private fun VisionHome(
                             prefs.edit().putBoolean("show_series_country_subcategories", it).apply()
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("VISION IPTV BUILD 2.1.1 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("VISION IPTV BUILD 2.1.3 • EPG CACHE ENABLED", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     "TV Guide" -> GuideScreen(channels, epgProgrammes)
                     "Catch-up" -> CatchupScreen()
