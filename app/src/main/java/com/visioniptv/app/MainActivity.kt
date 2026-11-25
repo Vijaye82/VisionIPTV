@@ -139,6 +139,14 @@ private fun VisionHome(
     var seriesEpisodesLoading by remember { mutableStateOf(false) }
     var seriesEpisodesError by remember { mutableStateOf("") }
     var watchHistoryRefresh by remember { mutableIntStateOf(0) }
+    var savedMediaKeys by remember { mutableStateOf(prefs.getStringSet("saved_media_keys", emptySet())?.toSet() ?: emptySet()) }
+    fun toggleSavedMedia(item: CatalogTitle) {
+        val key = item.kind + "|" + item.id
+        val updated = savedMediaKeys.toMutableSet()
+        if (updated.contains(key)) updated.remove(key) else updated.add(key)
+        savedMediaKeys = updated
+        prefs.edit().putStringSet("saved_media_keys", updated).apply()
+    }
     var mediaStatus by remember { mutableStateOf("Connect an Xtream account to load your Movies and Series library.") }
     var epgProgrammes by remember { mutableStateOf<List<Programme>>(emptyList()) }
     var epgStatus by remember { mutableStateOf("EPG not loaded") }
@@ -304,7 +312,7 @@ private fun VisionHome(
                                 try { selectedMedia = MediaCatalogRepository().enrich(item, tmdbToken) ?: item }
                                 catch (_: Exception) { selectedMedia = item }
                             }
-                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) }, onBack = { selectedMedia = null })
+                        }, onPlay = { playContent(it.streamUrl, it.title, it.id, "movie", 0L) }, isSaved = { savedMediaKeys.contains("movie|" + it.id) }, onToggleSaved = { toggleSavedMedia(it) }, onBack = { selectedMedia = null })
                     "Series" -> CatalogScreen("Series", series, selectedMedia, mediaStatus,
                         seriesDetails = selectedSeriesDetails,
                         episodesLoading = seriesEpisodesLoading,
@@ -340,6 +348,8 @@ private fun VisionHome(
                             playContent(episode.streamUrl, "${selectedMedia?.title.orEmpty()} - ${episode.title}",
                                 episode.id, "episode:${selectedMedia?.id.orEmpty()}", 0L)
                         },
+                        isSaved = { savedMediaKeys.contains("tv|" + it.id) },
+                        onToggleSaved = { toggleSavedMedia(it) },
                         onBack = { selectedMedia = null; selectedSeriesDetails = null; seriesEpisodesError = "" })
                     "Live TV" -> {
                         Text("LIVE TV", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
@@ -676,7 +686,24 @@ private fun VisionHome(
                         }
                         Spacer(Modifier.height(14.dp))
                         Text("Saved movies & series", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        PosterShelf(listOf("Your saved titles", "Recently watched", "Recommended"))
+                        val savedTitles = (movies + series).filter { savedMediaKeys.contains(it.kind + "|" + it.id) }
+                        if (savedTitles.isEmpty()) {
+                            EmptyPanel("Your list is empty", "Open a movie or series and choose Add to My List. Saved titles stay on this device.")
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                savedTitles.forEach { item ->
+                                    Row(Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(9.dp)).padding(9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        AsyncImage(model = item.posterUrl, contentDescription = item.title, modifier = Modifier.width(48.dp).height(68.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(item.title, color = Color.White, fontWeight = FontWeight.SemiBold)
+                                            Text(if (item.kind == "movie") "Movie" else "Series", color = Muted, fontSize = 11.sp)
+                                        }
+                                        TextButton(onClick = { selectedMedia = item; selected = if (item.kind == "movie") "Movies" else "Series" }) { Text("Open") }
+                                        TextButton(onClick = { toggleSavedMedia(item) }) { Text("Remove") }
+                                    }
+                                }
+                            }
+                        }
                     }
                     else -> Column {
                         HomeDashboard(onNavigate = { selected = it })
@@ -812,6 +839,8 @@ private fun CatalogScreen(
     seriesDetails: SeriesDetails? = null,
     episodesLoading: Boolean = false,
     episodesError: String = "",
+    isSaved: (CatalogTitle) -> Boolean = { false },
+    onToggleSaved: (CatalogTitle) -> Unit = {},
     onBack: () -> Unit
 ) {
     if (selected != null) {
@@ -830,6 +859,8 @@ private fun CatalogScreen(
                 Spacer(Modifier.height(10.dp))
                 Text(selected.overview.ifBlank { "No synopsis is available from your provider or metadata source." }, color = Color.White, fontSize = 14.sp)
                 Spacer(Modifier.height(14.dp))
+                OutlinedButton(onClick = { onToggleSaved(selected) }) { Text(if (isSaved(selected)) "Remove from My List" else "＋ Add to My List") }
+                Spacer(Modifier.height(8.dp))
                 if (selected.kind == "movie" && selected.streamUrl.isNotBlank()) {
                     Button(onClick = { onPlay(selected) }) { Text("Play movie") }
                 } else if (selected.kind == "tv") {
@@ -878,6 +909,7 @@ private fun CatalogScreen(
                             modifier = Modifier.fillMaxWidth().height(205.dp))
                         Text(item.title, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 2)
                         Text(item.year, color = Muted, fontSize = 11.sp)
+                        Text(if (isSaved(item)) "★ SAVED" else "＋ ADD TO MY LIST", color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onToggleSaved(item) }.padding(top = 5.dp))
                     }
                 }
             }
