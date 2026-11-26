@@ -524,8 +524,29 @@ private fun VisionHome(
                         Spacer(Modifier.height(10.dp))
                         Button(onClick = {
                             scope.launch {
-                                status = "Connecting…"
+                                status = "Saving connection details…"
                                 activeServerLabel = ""
+                                val savedSuccessfully = prefs.edit()
+                                    .putString("connection_type", connectionType)
+                                    .putString("playlist_url", playlistUrl)
+                                    .putString("backup_m3u1", backupM3u1)
+                                    .putString("backup_m3u2", backupM3u2)
+                                    .putString("primary_server", primaryServer)
+                                    .putString("backup_server1", backupServer1)
+                                    .putString("backup_server2", backupServer2)
+                                    .putString("backup_server3", backupServer3)
+                                    .putString("backup_server4", backupServer4)
+                                    .putString("account_username", accountUsername)
+                                    .putString("account_password", accountPassword)
+                                    .putString("primary_epg_url", primaryEpgUrl)
+                                    .putString("backup_epg_url", backupEpgUrl)
+                                    .putBoolean("connection_configured", true)
+                                    .commit()
+                                if (!savedSuccessfully) {
+                                    status = "Could not save connection details on this device."
+                                    return@launch
+                                }
+                                status = "Connecting…"
                                 try {
                                     val account = PlaylistAccount(
                                         name = "My playlist",
@@ -558,22 +579,7 @@ private fun VisionHome(
                                     } else {
                                         mediaStatus = "M3U playlists provide Live TV only here. Xtream login is needed for Movies and Series."
                                     }
-                                    prefs.edit()
-                                        .putString("connection_type", connectionType)
-                                        .putString("playlist_url", playlistUrl)
-                                        .putString("backup_m3u1", backupM3u1)
-                                        .putString("backup_m3u2", backupM3u2)
-                                        .putString("primary_server", primaryServer)
-                                        .putString("backup_server1", backupServer1)
-                                        .putString("backup_server2", backupServer2)
-                                        .putString("backup_server3", backupServer3)
-                                        .putString("backup_server4", backupServer4)
-                                        .putString("account_username", accountUsername)
-                                        .putString("account_password", accountPassword)
-                                        .putString("primary_epg_url", primaryEpgUrl)
-                                        .putString("backup_epg_url", backupEpgUrl)
-                                        .putBoolean("connection_configured", true)
-                                        .apply()
+
                                     selected = "Home"
                                     status = "Connected • ${channels.size} live channels"
                                     val providerEpgUrl = if (connectionType == "Xtream" && primaryServer.isNotBlank()) {
