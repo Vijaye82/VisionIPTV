@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import coil.compose.AsyncImage
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -122,7 +123,7 @@ private fun VisionHome(
     }
     val hasSavedConnection = remember { prefs.getBoolean("connection_configured", false) }
     var showSplash by remember { mutableStateOf(true) }
-    var selected by remember { mutableStateOf(if (hasSavedConnection) "Home" else "Settings") }
+    var selected by rememberSaveable { mutableStateOf(if (hasSavedConnection) "Home" else "Settings") }
     var connectionType by remember { mutableStateOf(prefs.getString("connection_type", "M3U") ?: "M3U") }
     var playlistUrl by remember { mutableStateOf(prefs.getString("playlist_url", "") ?: "") }
     var backupM3u1 by remember { mutableStateOf(prefs.getString("backup_m3u1", "") ?: "") }
